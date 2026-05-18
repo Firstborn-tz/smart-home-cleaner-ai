@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node modules (if any)
+node_modules/
+
+# Tests
+tests/
+phpunit.xml
+
+# Documentation
+README.md
+docs/
+
+# Environment
+.env
+.env.*
+.env.example
+
+# Docker
+docker-compose.yml
+.dockerignore
+Dockerfile
+
+# Vendor (will be installed in container)
+vendor/
+
+# Storage
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Mac
+.DS_Store
