@@ -1,200 +1,332 @@
 @extends('layouts.app')
 
-@section('title', 'Cleaner Registration Requests')
+@section('title', 'Registration Requests')
 @section('user_role', 'Administrator')
 @section('page_title', 'Registration Requests')
 @section('page_subtitle', 'Review and manage cleaner applications')
 
 @section('content')
 <div x-data="cleanerRequests()">
-    
-   @php
-    // Get ALL unverified cleaners as pending
-    $pendingCleaners = App\Models\Cleaner::with(['user', 'city'])
-        ->where('is_verified', false)
-        ->latest()
-        ->get();
+    @php
+        $sort = request('sort', 'newest');
+        $cityFilter = request('city', '');
+        $genderFilter = request('gender', '');
+        $tab = request('tab', 'pending');
         
-    $approvedCleaners = App\Models\Cleaner::with(['user', 'city'])
-        ->where('is_verified', true)
-        ->latest()->limit(30)->get();
+        $pendingQuery = App\Models\Cleaner::with(['user', 'city'])
+            ->where('is_verified', false);
         
-    $rejectedCleaners = App\Models\Cleaner::with(['user'])
-        ->where('registration_status', 'rejected')
-        ->latest()->limit(20)->get();
+        if ($cityFilter) $pendingQuery->where('city_id', $cityFilter);
+        if ($genderFilter) $pendingQuery->where('gender', $genderFilter);
         
-    $tab = request('tab', 'pending');
-   @endphp
-    <!-- Stats Bar -->
-    <div class="grid grid-cols-3 gap-3 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
-            <p class="text-2xl font-extrabold text-yellow-600">{{ $pendingCleaners->count() }}</p>
-            <p class="text-xs text-gray-500 mt-1">Pending</p>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
-            <p class="text-2xl font-extrabold text-green-600">{{ $approvedToday }}</p>
-            <p class="text-xs text-gray-500 mt-1">Approved Today</p>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 text-center">
-            <p class="text-2xl font-extrabold text-blue-600">{{ App\Models\Cleaner::count() }}</p>
-            <p class="text-xs text-gray-500 mt-1">Total Cleaners</p>
+        switch($sort) {
+            case 'oldest': $pendingQuery->oldest(); break;
+            case 'name_asc': $pendingQuery->join('users', 'cleaners.user_id', '=', 'users.id')->orderBy('users.first_name', 'asc')->select('cleaners.*'); break;
+            case 'name_desc': $pendingQuery->join('users', 'cleaners.user_id', '=', 'users.id')->orderBy('users.first_name', 'desc')->select('cleaners.*'); break;
+            default: $pendingQuery->latest();
+        }
+        
+        $pendingCleaners = $pendingQuery->get();
+        $approvedCleaners = App\Models\Cleaner::with(['user', 'city'])->where('is_verified', true)->latest()->limit(30)->get();
+        $rejectedCleaners = App\Models\Cleaner::with(['user'])->where('registration_status', 'rejected')->latest()->limit(20)->get();
+        
+        $allCities = App\Models\City::where('is_active', true)->orderBy('name')->get();
+        $approvedToday = App\Models\Cleaner::where('is_verified', true)->whereDate('verified_at', today())->count();
+    @endphp
+
+    {{-- ============================================ --}}
+    {{-- TAB STATS CARDS --}}
+    {{-- ============================================ --}}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4 mb-6">
+        {{-- Pending --}}
+        <a href="?tab=pending" class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 transition-all duration-300 p-4 text-center card-hover-lift {{ $tab === 'pending' ? 'border-yellow-500 shadow-yellow-500/10' : 'border-transparent hover:border-yellow-200 dark:hover:border-yellow-500/30' }}">
+            @if($tab === 'pending')
+            <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-12 h-1 bg-yellow-500 rounded-b-full"></div>
+            @endif
+            <div class="w-10 h-10 bg-linear-to-br from-yellow-100 to-amber-200 dark:from-yellow-900/40 dark:to-amber-800/40 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
+            </div>
+            <p class="text-2xl font-black text-heading stat-number">{{ $pendingCleaners->count() }}</p>
+            <p class="text-[11px] text-muted font-medium uppercase tracking-wider">Pending</p>
+            @if($pendingCleaners->count() > 0)
+            <span class="inline-block mt-2 w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+            @endif
+        </a>
+
+        {{-- Approved Today --}}
+        <a href="?tab=approved" class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 transition-all duration-300 p-4 text-center card-hover-lift {{ $tab === 'approved' ? 'border-green-500 shadow-green-500/10' : 'border-transparent hover:border-green-200 dark:hover:border-green-500/30' }}">
+            @if($tab === 'approved')
+            <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-12 h-1 bg-green-500 rounded-b-full"></div>
+            @endif
+            <div class="w-10 h-10 bg-linear-to-br from-green-100 to-emerald-200 dark:from-green-900/40 dark:to-emerald-800/40 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+            </div>
+            <p class="text-2xl font-black text-heading stat-number">{{ $approvedToday }}</p>
+            <p class="text-[11px] text-muted font-medium uppercase tracking-wider">Approved Today</p>
+        </a>
+
+        {{-- Rejected --}}
+        <a href="?tab=rejected" class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 transition-all duration-300 p-4 text-center card-hover-lift {{ $tab === 'rejected' ? 'border-red-500 shadow-red-500/10' : 'border-transparent hover:border-red-200 dark:hover:border-red-500/30' }}">
+            @if($tab === 'rejected')
+            <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-12 h-1 bg-red-500 rounded-b-full"></div>
+            @endif
+            <div class="w-10 h-10 bg-linear-to-br from-red-100 to-rose-200 dark:from-red-900/40 dark:to-rose-800/40 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <i class="fas fa-times-circle text-red-600 dark:text-red-400"></i>
+            </div>
+            <p class="text-2xl font-black text-heading stat-number">{{ $rejectedCleaners->count() }}</p>
+            <p class="text-[11px] text-muted font-medium uppercase tracking-wider">Rejected</p>
+        </a>
+
+        {{-- All Cleaners --}}
+        <a href="/admin/cleaners" class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-500/30 transition-all duration-300 p-4 text-center card-hover-lift">
+            <div class="w-10 h-10 bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <i class="fas fa-users text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <p class="text-2xl font-black text-heading stat-number">{{ App\Models\Cleaner::count() }}</p>
+            <p class="text-[11px] text-muted font-medium uppercase tracking-wider">All Cleaners</p>
+        </a>
+
+        {{-- Approval Rate --}}
+        <div class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-transparent transition-all duration-300 p-4 text-center card-hover-lift">
+            @php $approvalRate = App\Models\Cleaner::count() > 0 ? round((App\Models\Cleaner::where('is_verified', true)->count() / App\Models\Cleaner::count()) * 100) : 0; @endphp
+            <div class="w-10 h-10 bg-linear-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <i class="fas fa-chart-pie text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <p class="text-2xl font-black text-heading stat-number">{{ $approvalRate }}%</p>
+            <p class="text-[11px] text-muted font-medium uppercase tracking-wider">Approval Rate</p>
+            {{-- Mini progress bar --}}
+            <div class="mt-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-700" style="width: {{ $approvalRate }}%"></div>
+            </div>
         </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="flex space-x-2 mb-6 overflow-x-auto" x-data="{ tab: 'pending' }">
-        <button @click="tab = 'pending'" :class="tab === 'pending' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
-                class="px-4 py-2 rounded-xl text-sm font-bold transition flex-shrink-0">
-            <i class="fas fa-clock mr-1"></i> Pending ({{ $pendingCleaners->count() }})
-        </button>
-        <button @click="tab = 'approved'" :class="tab === 'approved' ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
-                class="px-4 py-2 rounded-xl text-sm font-bold transition flex-shrink-0">
-            <i class="fas fa-check mr-1"></i> Approved
-        </button>
-        <button @click="tab = 'rejected'" :class="tab === 'rejected' ? 'bg-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
-                class="px-4 py-2 rounded-xl text-sm font-bold transition flex-shrink-0">
-            <i class="fas fa-times mr-1"></i> Rejected
-        </button>
+    {{-- ============================================ --}}
+    {{-- FILTERS BAR --}}
+    {{-- ============================================ --}}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
+        <form method="GET" class="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="tab" value="{{ $tab }}">
+            
+            <div class="relative">
+                <i class="fas fa-sort-amount-down absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm"></i>
+                <select name="sort" class="pl-9 pr-8 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 text-body text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 outline-none transition-all duration-300 appearance-none">
+                    <option value="newest" {{ $sort === 'newest' ? 'selected' : '' }}>Newest First</option>
+                    <option value="oldest" {{ $sort === 'oldest' ? 'selected' : '' }}>Oldest First</option>
+                    <option value="name_asc" {{ $sort === 'name_asc' ? 'selected' : '' }}>Name A-Z</option>
+                    <option value="name_desc" {{ $sort === 'name_desc' ? 'selected' : '' }}>Name Z-A</option>
+                </select>
+            </div>
+
+            <div class="relative">
+                <i class="fas fa-city absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm"></i>
+                <select name="city" class="pl-9 pr-8 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 text-body text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 outline-none transition-all duration-300 appearance-none">
+                    <option value="">All Cities</option>
+                    @foreach($allCities as $city)
+                    <option value="{{ $city->id }}" {{ $cityFilter == $city->id ? 'selected' : '' }}>{{ $city->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="relative">
+                <i class="fas fa-venus-mars absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm"></i>
+                <select name="gender" class="pl-9 pr-8 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 text-body text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 outline-none transition-all duration-300 appearance-none">
+                    <option value="">All Genders</option>
+                    <option value="male" {{ $genderFilter === 'male' ? 'selected' : '' }}>Male</option>
+                    <option value="female" {{ $genderFilter === 'female' ? 'selected' : '' }}>Female</option>
+                </select>
+            </div>
+
+            <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300">
+                <i class="fas fa-filter mr-1.5"></i> Apply Filters
+            </button>
+
+            @if($sort !== 'newest' || $cityFilter || $genderFilter)
+            <a href="?tab={{ $tab }}" class="inline-flex items-center gap-1.5 px-4 py-2.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-300">
+                <i class="fas fa-times"></i> Clear
+            </a>
+            @endif
+        </form>
     </div>
 
-    <!-- PENDING REQUESTS -->
-    <div x-show="tab === 'pending'">
+    {{-- ============================================ --}}
+    {{-- PENDING TAB --}}
+    {{-- ============================================ --}}
+    @if($tab === 'pending')
         @if($pendingCleaners->count() > 0)
-        <div class="space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
             @foreach($pendingCleaners as $cleaner)
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border-l-4 border-yellow-500">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden card-hover-lift group">
                 
-                <!-- Cleaner Header -->
-                <div class="flex items-start justify-between mb-4">
-                    <div class="flex items-center space-x-4">
-                        <img src="https://ui-avatars.com/api/?name={{ urlencode($cleaner->user->full_name) }}&background=f59e0b&color=fff&bold=true&size=56" 
-                             class="w-14 h-14 rounded-xl flex-shrink-0">
-                        <div>
-                            <h3 class="font-extrabold text-lg text-gray-800 dark:text-white">{{ $cleaner->user->full_name }}</h3>
-                            <p class="text-sm text-gray-500">{{ $cleaner->user->email }}</p>
-                            <p class="text-sm text-gray-500">{{ $cleaner->user->phone }}</p>
+                {{-- Card Header --}}
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-yellow-50 to-transparent dark:from-yellow-500/5 dark:to-transparent">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-3">
+                            <img src="https://ui-avatars.com/api/?name={{ urlencode($cleaner->user->full_name) }}&background=f59e0b&color=fff&size=48&bold=true" 
+                                 class="w-12 h-12 rounded-xl ring-2 ring-yellow-200 dark:ring-yellow-500/30">
+                            <div>
+                                <h3 class="font-bold text-heading">{{ $cleaner->user->full_name }}</h3>
+                                <p class="text-xs text-muted">{{ $cleaner->user->email }}</p>
+                                <p class="text-xs text-muted">{{ $cleaner->user->phone }}</p>
+                                <span class="inline-flex items-center mt-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md text-[10px] font-mono text-muted">
+                                    {{ $cleaner->cleaner_id }}
+                                </span>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-3 py-1.5 bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-bold border border-yellow-200 dark:border-yellow-500/20 flex-shrink-0">
+                            <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1.5 animate-pulse"></span>
+                            Pending
+                        </span>
+                    </div>
+                </div>
+
+                {{-- Card Body --}}
+                <div class="p-5 space-y-3">
+                    {{-- Personal Details Grid --}}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Gender</p>
+                            <p class="text-sm font-bold text-heading">{{ ucfirst($cleaner->gender ?? 'N/A') }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center group-hover:bg-purple-50 dark:group-hover:bg-purple-900/20 transition-all">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Date of Birth</p>
+                            <p class="text-sm font-bold text-heading">{{ $cleaner->date_of_birth ? \Carbon\Carbon::parse($cleaner->date_of_birth)->format('M d, Y') : 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center group-hover:bg-green-50 dark:group-hover:bg-green-900/20 transition-all col-span-2">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">NIDA Number</p>
+                            <p class="text-xs font-bold text-heading">{{ $cleaner->national_id ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 transition-all col-span-2">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Applied</p>
+                            <p class="text-sm font-bold text-heading">
+                                <i class="fas fa-clock text-orange-400 mr-1"></i> {{ $cleaner->created_at->diffForHumans() }}
+                            </p>
                         </div>
                     </div>
-                    <span class="px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 rounded-full text-xs font-bold">
-                        <i class="fas fa-clock mr-1"></i> Pending
-                    </span>
+
+                    {{-- Location Details --}}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">City</p>
+                            <p class="text-sm font-bold text-heading">
+                                <i class="fas fa-map-marker-alt text-red-400 mr-1 text-xs"></i> {{ $cleaner->city->name ?? 'N/A' }}
+                            </p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Region</p>
+                            <p class="text-sm font-bold text-heading">{{ $cleaner->region ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 col-span-2">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Street Address</p>
+                            <p class="text-sm font-bold text-heading">{{ $cleaner->street ?? 'N/A' }}, {{ $cleaner->ward ?? '' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">House/Gate #</p>
+                            <p class="text-sm font-bold text-heading">{{ $cleaner->house_number ?? 'N/A' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+                            <p class="text-[10px] text-muted uppercase tracking-wider mb-0.5">Service Radius</p>
+                            <p class="text-sm font-bold text-heading">{{ $cleaner->max_service_radius_km ?? 30 }} km</p>
+                        </div>
+                    </div>
+
+                    {{-- Map --}}
+                    @if($cleaner->current_latitude && $cleaner->current_longitude)
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden">
+                        <div class="flex items-center justify-between px-3 py-2 bg-gray-200 dark:bg-gray-600">
+                            <p class="text-xs font-semibold text-heading">
+                                <i class="fas fa-map-pin text-red-500 mr-1"></i> Registered Location
+                            </p>
+                            <a href="https://www.google.com/maps?q={{ $cleaner->current_latitude }},{{ $cleaner->current_longitude }}" 
+                               target="_blank" 
+                               class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                <i class="fas fa-external-link-alt mr-1"></i> Google Maps
+                            </a>
+                        </div>
+                        <div id="map-{{ $cleaner->id }}" class="w-full h-36 bg-gray-200 dark:bg-gray-600"></div>
+                    </div>
+                    @endif
                 </div>
 
-                <!-- Details Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Gender</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ ucfirst($cleaner->gender ?? 'N/A') }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Date of Birth</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ $cleaner->date_of_birth ? \Carbon\Carbon::parse($cleaner->date_of_birth)->format('M d, Y') : 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">National ID</p>
-                        <p class="font-bold text-gray-800 dark:text-white text-xs">{{ $cleaner->national_id ?? 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">City</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ $cleaner->city->name ?? 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Street Address</p>
-                        <p class="font-bold text-gray-800 dark:text-white text-xs">{{ $cleaner->street ?? 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Ward/District</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ $cleaner->ward ?? 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Region</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ $cleaner->region ?? 'N/A' }}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                        <p class="text-xs text-gray-500">Applied</p>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ $cleaner->created_at->diffForHumans() }}</p>
-                    </div>
-                </div>
-
-                <!-- Map & Location -->
-                @if($cleaner->current_latitude && $cleaner->current_longitude)
-                <div class="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 mb-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-sm font-bold text-gray-700 dark:text-gray-300">
-                            <i class="fas fa-map-marker-alt text-red-500 mr-2"></i> Registered Location
-                        </p>
-                        <a href="https://www.google.com/maps?q={{ $cleaner->current_latitude }},{{ $cleaner->current_longitude }}" 
-                           target="_blank" class="text-blue-600 text-xs hover:underline">
-                            <i class="fas fa-external-link-alt mr-1"></i> View on Google Maps
-                        </a>
-                    </div>
-                    <div id="map-{{ $cleaner->id }}" class="w-full h-48 rounded-lg bg-gray-200 dark:bg-gray-600"></div>
-                    <p class="text-xs text-gray-500 mt-2">
-                        <i class="fas fa-street-view mr-1"></i> {{ $cleaner->street ?? '' }}, {{ $cleaner->ward ?? '' }}, {{ $cleaner->city->name ?? '' }}
-                    </p>
-                </div>
-                @endif
-
-                <!-- Action Buttons -->
-                <div class="flex space-x-3">
-                    <button onclick="showDetailModal({{ $cleaner->id }})" 
-                            class="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition">
-                        <i class="fas fa-eye mr-1"></i> View Full Details
+                {{-- Card Footer Actions --}}
+                <div class="p-5 pt-0 flex gap-2">
+                    <button @click="approveCleaner({{ $cleaner->id }})" 
+                            class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] transition-all duration-300">
+                        <i class="fas fa-check mr-1.5"></i> Approve
                     </button>
-                    <button onclick="approveCleaner({{ $cleaner->id }})" 
-                            class="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-sm transition">
-                        <i class="fas fa-check mr-1"></i> Approve
+                    <button @click="rejectCleaner({{ $cleaner->id }})" 
+                            class="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.02] transition-all duration-300">
+                        <i class="fas fa-times mr-1.5"></i> Reject
                     </button>
-                    <button onclick="rejectCleaner({{ $cleaner->id }})" 
-                            class="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm transition">
-                        <i class="fas fa-times mr-1"></i> Reject
+                    <button @click="showDetailModal({{ $cleaner->id }})" 
+                            class="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] transition-all duration-300">
+                        <i class="fas fa-eye"></i>
                     </button>
                 </div>
             </div>
             @endforeach
         </div>
         @else
-        <div class="text-center py-16 text-gray-500">
-            <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
-            <p class="text-lg font-bold">No Pending Requests</p>
-            <p class="text-sm">All cleaner applications have been processed</p>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-16 text-center">
+            <div class="w-20 h-20 bg-linear-to-br from-green-100 to-emerald-200 dark:from-green-900/40 dark:to-emerald-800/40 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-inbox text-green-600 dark:text-green-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-heading mb-2">All Caught Up!</h3>
+            <p class="text-muted">No pending cleaner applications to review</p>
         </div>
         @endif
-    </div>
+    @endif
 
-    <!-- APPROVED TAB -->
-    <div x-show="tab === 'approved'" x-data="{ approved: [] }" x-init="fetchApproved()">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
+    {{-- ============================================ --}}
+    {{-- APPROVED TAB --}}
+    {{-- ============================================ --}}
+    @if($tab === 'approved')
+        @if($approvedCleaners->count() > 0)
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cleaner</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">City</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rating</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jobs</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-700/50">
+                            <th class="px-6 py-4 text-left text-xs font-bold text-muted uppercase tracking-wider">Cleaner</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-muted uppercase tracking-wider">City</th>
+                            <th class="px-6 py-4 text-center text-xs font-bold text-muted uppercase tracking-wider">Rating</th>
+                            <th class="px-6 py-4 text-center text-xs font-bold text-muted uppercase tracking-wider">Jobs</th>
+                            <th class="px-6 py-4 text-center text-xs font-bold text-muted uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-muted uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-600">
-                        @foreach(App\Models\Cleaner::with('user','city')->where('registration_status','approved')->latest()->limit(30)->get() as $c)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
-                            <td class="px-4 py-3">
-                                <div class="flex items-center space-x-2">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($c->user->full_name) }}&background=22c55e&color=fff&size=32" class="w-8 h-8 rounded-lg">
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @foreach($approvedCleaners as $c)
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($c->user->full_name) }}&background=22c55e&color=fff&size=36&bold=true" 
+                                         class="w-9 h-9 rounded-xl ring-2 ring-green-200 dark:ring-green-500/20">
                                     <div>
-                                        <p class="font-medium text-gray-800 dark:text-white">{{ $c->user->full_name }}</p>
-                                        <p class="text-xs text-gray-500">{{ $c->cleaner_id }}</p>
+                                        <p class="font-semibold text-heading text-sm">{{ $c->user->full_name }}</p>
+                                        <p class="text-[11px] text-muted font-mono">{{ $c->cleaner_id }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-4 py-3">{{ $c->city->name ?? 'N/A' }}</td>
-                            <td class="px-4 py-3"><span class="text-green-600 font-bold text-xs">Approved</span></td>
-                            <td class="px-4 py-3">{{ number_format($c->rating, 1) }}</td>
-                            <td class="px-4 py-3">{{ $c->total_completed_jobs }}</td>
-                            <td class="px-4 py-3">
-                                <a href="/admin/cleaners/{{ $c->id }}" class="text-blue-600 text-xs hover:underline">View</a>
+                            <td class="px-6 py-4 text-sm text-body">{{ $c->city->name ?? 'N/A' }}</td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <i class="fas fa-star text-yellow-500 text-xs"></i>
+                                    <span class="text-sm font-bold text-heading">{{ number_format($c->rating, 1) }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="text-sm font-bold text-blue-600 dark:text-blue-400">{{ $c->total_completed_jobs }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/20">
+                                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span> Active
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="/admin/cleaners/{{ $c->id }}" class="inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all">
+                                    View <i class="fas fa-arrow-right ml-1 text-[10px]"></i>
+                                </a>
                             </td>
                         </tr>
                         @endforeach
@@ -202,156 +334,303 @@
                 </table>
             </div>
         </div>
-    </div>
-
-    <!-- REJECTED TAB -->
-    <div x-show="tab === 'rejected'">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cleaner</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-600">
-                    @foreach(App\Models\Cleaner::with('user')->where('registration_status','rejected')->latest()->limit(30)->get() as $c)
-                    <tr>
-                        <td class="px-4 py-3 font-medium">{{ $c->user->full_name }}</td>
-                        <td class="px-4 py-3 text-sm text-red-600">{{ $c->registration_notes ?? 'No reason' }}</td>
-                        <td class="px-4 py-3 text-xs">{{ $c->updated_at->format('M d, Y') }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        @else
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-16 text-center">
+            <div class="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-check text-blue-600 dark:text-blue-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-heading mb-2">No Approved Cleaners</h3>
+            <p class="text-muted">No cleaners have been approved yet</p>
         </div>
-    </div>
+        @endif
+    @endif
+
+    {{-- ============================================ --}}
+    {{-- REJECTED TAB --}}
+    {{-- ============================================ --}}
+    @if($tab === 'rejected')
+        @if($rejectedCleaners->count() > 0)
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-700/50">
+                            <th class="px-6 py-4 text-left text-xs font-bold text-muted uppercase tracking-wider">Cleaner</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-muted uppercase tracking-wider">Reason</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-muted uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @foreach($rejectedCleaners as $c)
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($c->user->full_name) }}&background=ef4444&color=fff&size=36&bold=true" 
+                                         class="w-9 h-9 rounded-xl ring-2 ring-red-200 dark:ring-red-500/20 opacity-60">
+                                    <div>
+                                        <p class="font-semibold text-heading text-sm">{{ $c->user->full_name }}</p>
+                                        <p class="text-[11px] text-muted">{{ $c->user->email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                                    <i class="fas fa-comment-alt text-xs"></i>
+                                    <span>{{ $c->registration_notes ?? 'No reason given' }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-right text-sm text-muted">
+                                {{ $c->updated_at->format('M d, Y') }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @else
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-16 text-center">
+            <div class="w-20 h-20 bg-linear-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-slash text-gray-400 dark:text-gray-500 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-heading mb-2">No Rejected Cleaners</h3>
+            <p class="text-muted">No cleaners have been rejected</p>
+        </div>
+        @endif
+    @endif
 </div>
 
-<!-- DETAIL MODAL -->
-<div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="closeDetailModal(event)">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4" onclick="event.stopPropagation()">
-        <div class="sticky top-0 bg-white dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between rounded-t-2xl">
-            <h3 class="font-bold text-lg text-gray-800 dark:text-white">Cleaner Details</h3>
-            <button onclick="closeDetailModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <i class="fas fa-times text-gray-500"></i>
+{{-- ============================================ --}}
+{{-- DETAIL MODAL --}}
+{{-- ============================================ --}}
+<div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="closeDetailModal">
+    <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto m-4 animate-slide-up border border-gray-100 dark:border-gray-700">
+        {{-- Modal Header --}}
+        <div class="sticky top-0 z-10 bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between rounded-t-3xl backdrop-blur">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-linear-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-user text-white"></i>
+                </div>
+                <h3 class="font-bold text-heading text-lg">Cleaner Details</h3>
+            </div>
+            <button @click="closeDetailModal" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                <i class="fas fa-times text-muted"></i>
             </button>
         </div>
+        
+        {{-- Modal Content --}}
         <div id="detailContent" class="p-6">
-            <p class="text-center text-gray-500">Loading...</p>
+            <div class="flex items-center justify-center py-8">
+                <i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i>
+                <span class="ml-3 text-muted">Loading...</span>
+            </div>
         </div>
     </div>
 </div>
 
-@push('scripts')
-<script>
-    // Load maps for pending cleaners
-    function initMaps() {
-        @foreach($pendingCleaners as $cleaner)
-        @if($cleaner->current_latitude && $cleaner->current_longitude)
-        (function() {
-            const mapEl = document.getElementById('map-{{ $cleaner->id }}');
-            if (!mapEl) return;
-            const pos = { lat: {{ $cleaner->current_latitude }}, lng: {{ $cleaner->current_longitude }} };
-            const map = new google.maps.Map(mapEl, { center: pos, zoom: 15, mapTypeControl: false, streetViewControl: false });
-            new google.maps.Marker({ position: pos, map: map, title: "{{ $cleaner->user->full_name }}",
-                icon: { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }
-            });
-        })();
-        @endif
-        @endforeach
-    }
+{{-- Toast Notification --}}
+<div x-show="toast.show" 
+     x-transition:enter="transition ease-out duration-300" 
+     x-transition:enter-start="opacity-0 translate-x-6" 
+     x-transition:enter-end="opacity-100 translate-x-0" 
+     x-transition:leave="transition ease-in duration-200" 
+     x-transition:leave-start="opacity-100 translate-x-0" 
+     x-transition:leave-end="opacity-0 translate-x-6" 
+     class="fixed top-6 right-6 z-[9999] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-semibold text-white"
+     :class="toast.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-red-500 to-rose-600'"
+     style="display: none;">
+    <i class="fas text-lg" :class="toast.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+    <span x-text="toast.message"></span>
+</div>
 
-    async function showDetailModal(cleanerId) {
-        document.getElementById('detailModal').classList.remove('hidden');
-        document.getElementById('detailModal').classList.add('flex');
-        document.getElementById('detailContent').innerHTML = '<p class="text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i> Loading...</p>';
-        
-        try {
-            const res = await fetch(`/admin/cleaners/${cleanerId}/details`);
-            const data = await res.json();
-            if (data.success) {
-                const c = data.cleaner;
-                document.getElementById('detailContent').innerHTML = `
-                    <div class="space-y-4">
-                        <div class="flex items-center space-x-4">
-                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.user.full_name)}&background=3b82f6&color=fff&size=64" class="w-16 h-16 rounded-xl">
-                            <div>
-                                <h3 class="font-extrabold text-xl">${c.user.full_name}</h3>
-                                <p class="text-gray-500">${c.user.email}</p>
-                                <p class="text-gray-500">${c.user.phone}</p>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 text-sm">
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"><p class="text-xs text-gray-500">Gender</p><p class="font-bold">${c.gender || 'N/A'}</p></div>
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"><p class="text-xs text-gray-500">DOB</p><p class="font-bold">${c.date_of_birth || 'N/A'}</p></div>
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"><p class="text-xs text-gray-500">NIDA</p><p class="font-bold text-xs">${c.national_id || 'N/A'}</p></div>
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"><p class="text-xs text-gray-500">City</p><p class="font-bold">${c.city?.name || 'N/A'}</p></div>
-                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 col-span-2"><p class="text-xs text-gray-500">Address</p><p class="font-bold">${c.street || ''}, ${c.ward || ''}, ${c.region || ''}</p></div>
-                        </div>
-                        ${c.current_latitude ? `
-                        <div class="bg-gray-100 dark:bg-gray-700 rounded-xl p-3">
-                            <p class="text-sm font-bold mb-2"><i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Location</p>
-                            <div id="detailMap" class="w-full h-48 rounded-lg bg-gray-200"></div>
-                        </div>` : ''}
-                    </div>
-                `;
-                
-                // Init detail map
-                if (c.current_latitude) {
-                    setTimeout(() => {
-                        const mapEl = document.getElementById('detailMap');
-                        if (!mapEl) return;
-                        const pos = { lat: parseFloat(c.current_latitude), lng: parseFloat(c.current_longitude) };
-                        const map = new google.maps.Map(mapEl, { center: pos, zoom: 16 });
-                        new google.maps.Marker({ position: pos, map: map });
-                    }, 300);
-                }
-            }
-        } catch (e) {
-            document.getElementById('detailContent').innerHTML = '<p class="text-red-500">Failed to load details</p>';
-        }
-    }
-
-    function closeDetailModal(event) {
-        if (event && event.target !== document.getElementById('detailModal')) return;
-        document.getElementById('detailModal').classList.add('hidden');
-        document.getElementById('detailModal').classList.remove('flex');
-    }
-
-    async function approveCleaner(id) {
-        if (!confirm('Approve this cleaner? They will be notified and can start receiving bookings.')) return;
-        try {
-            const res = await fetch(`/admin/cleaners/${id}/approve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
-                body: JSON.stringify({})
-            });
-            const data = await res.json();
-            window.showToast(data.message, data.success ? 'success' : 'error');
-            if (data.success) setTimeout(() => location.reload(), 1500);
-        } catch (e) { window.showToast('Failed', 'error'); }
-    }
-
-    async function rejectCleaner(id) {
-        const reason = prompt('Reason for rejection (will be shown to the cleaner):');
-        if (!reason) return;
-        try {
-            const res = await fetch(`/admin/cleaners/${id}/reject`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
-                body: JSON.stringify({ reason })
-            });
-            const data = await res.json();
-            window.showToast(data.message, data.success ? 'success' : 'error');
-            if (data.success) setTimeout(() => location.reload(), 1500);
-        } catch (e) { window.showToast('Failed', 'error'); }
-    }
-
-    // Load maps on page load
-    window.addEventListener('load', () => setTimeout(initMaps, 500));
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key', '') }}&v=weekly"></script>
-@endpush
 @endsection
+
+@push('scripts')
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key', '') }}&v=weekly"></script>
+<script>
+    function cleanerRequests() {
+        return {
+            toast: { show: false, message: '', type: 'success' },
+            
+            init() {
+                setTimeout(() => this.initMaps(), 500);
+            },
+
+            initMaps() {
+                @foreach($pendingCleaners as $cleaner)
+                @if($cleaner->current_latitude && $cleaner->current_longitude)
+                (function() {
+                    const mapEl = document.getElementById('map-{{ $cleaner->id }}');
+                    if (!mapEl || typeof google === 'undefined') return;
+                    const pos = { lat: {{ $cleaner->current_latitude }}, lng: {{ $cleaner->current_longitude }} };
+                    const map = new google.maps.Map(mapEl, { 
+                        center: pos, 
+                        zoom: 15, 
+                        mapTypeControl: false, 
+                        streetViewControl: false,
+                        styles: [
+                            { featureType: "poi", stylers: [{ visibility: "off" }] },
+                            { featureType: "transit", stylers: [{ visibility: "off" }] }
+                        ]
+                    });
+                    new google.maps.Marker({ 
+                        position: pos, 
+                        map: map, 
+                        title: "{{ $cleaner->user->full_name }}", 
+                        icon: { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' },
+                        animation: google.maps.Animation.DROP
+                    });
+                })();
+                @endif
+                @endforeach
+            },
+
+            async showDetailModal(cleanerId) {
+                const modal = document.getElementById('detailModal');
+                modal.classList.remove('hidden'); 
+                modal.classList.add('flex');
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="flex items-center justify-center py-8">
+                        <i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i>
+                        <span class="ml-3 text-muted">Loading...</span>
+                    </div>`;
+                
+                try {
+                    const res = await fetch(`/admin/cleaners/${cleanerId}/details`);
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        const c = data.cleaner;
+                        document.getElementById('detailContent').innerHTML = `
+                            <div class="space-y-5">
+                                <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
+                                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.user.full_name)}&background=3b82f6&color=fff&size=56&bold=true" class="w-14 h-14 rounded-xl ring-2 ring-blue-200 dark:ring-blue-500/20">
+                                    <div>
+                                        <h3 class="font-bold text-heading text-lg">${c.user.full_name}</h3>
+                                        <p class="text-sm text-muted">${c.user.email}</p>
+                                        <p class="text-sm text-muted">${c.user.phone}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+                                        <p class="text-[10px] text-muted uppercase tracking-wider mb-1">Gender</p>
+                                        <p class="text-sm font-bold text-heading">${c.gender || 'N/A'}</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+                                        <p class="text-[10px] text-muted uppercase tracking-wider mb-1">DOB</p>
+                                        <p class="text-sm font-bold text-heading">${c.date_of_birth || 'N/A'}</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+                                        <p class="text-[10px] text-muted uppercase tracking-wider mb-1">NIDA</p>
+                                        <p class="text-xs font-bold text-heading">${c.national_id || 'N/A'}</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 text-center">
+                                        <p class="text-[10px] text-muted uppercase tracking-wider mb-1">City</p>
+                                        <p class="text-sm font-bold text-heading">${c.city?.name || 'N/A'}</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 col-span-2">
+                                        <p class="text-[10px] text-muted uppercase tracking-wider mb-1">Address</p>
+                                        <p class="text-sm font-bold text-heading">${c.street || ''}, ${c.ward || ''}, ${c.region || ''}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex gap-2 pt-2">
+                                    <button onclick="document.querySelector('[x-data]').__x.$data.closeDetailModal(); document.querySelector('[x-data]').__x.$data.approveCleaner(${c.id})" 
+                                            class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] transition-all">
+                                        <i class="fas fa-check mr-1.5"></i> Approve
+                                    </button>
+                                    <button onclick="document.querySelector('[x-data]').__x.$data.closeDetailModal(); document.querySelector('[x-data]').__x.$data.rejectCleaner(${c.id})" 
+                                            class="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] transition-all">
+                                        <i class="fas fa-times mr-1.5"></i> Reject
+                                    </button>
+                                </div>
+                            </div>`;
+                    }
+                } catch (e) { 
+                    document.getElementById('detailContent').innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-3"></i>
+                            <p class="text-red-500 font-medium">Failed to load details</p>
+                        </div>`;
+                }
+            },
+
+            closeDetailModal() {
+                const modal = document.getElementById('detailModal');
+                modal.classList.add('hidden'); 
+                modal.classList.remove('flex');
+            },
+
+            async approveCleaner(id) {
+                if (!confirm('Approve this cleaner? They will be able to login and start receiving bookings.')) return;
+                
+                try {
+                    const res = await fetch(`/admin/cleaners/${id}/approve`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        this.showToast(data.message, 'success');
+                        setTimeout(() => location.href = '/admin/cleaner-requests?tab=approved', 1500);
+                    } else {
+                        this.showToast(data.message || 'Failed to approve', 'error');
+                    }
+                } catch (e) {
+                    this.showToast('Failed to approve cleaner', 'error');
+                }
+            },
+
+            async rejectCleaner(id) {
+                const reason = prompt('Enter reason for rejection:');
+                if (!reason || !reason.trim()) return;
+                
+                if (!confirm(`Reject this cleaner?\n\nReason: ${reason}`)) return;
+                
+                try {
+                    const res = await fetch(`/admin/cleaners/${id}/reject`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ reason: reason })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        this.showToast(data.message, 'success');
+                        setTimeout(() => location.href = '/admin/cleaner-requests?tab=rejected', 1500);
+                    } else {
+                        this.showToast(data.message || 'Failed to reject', 'error');
+                    }
+                } catch (e) {
+                    this.showToast('Failed to reject cleaner', 'error');
+                }
+            },
+
+            showToast(message, type = 'success') {
+                this.toast = { show: true, message, type };
+                setTimeout(() => this.toast.show = false, 3500);
+            }
+        };
+    }
+</script>
+
+<style>
+    @keyframes slide-up {
+        from { opacity: 0; transform: translateY(30px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-slide-up {
+        animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+</style>
+@endpush

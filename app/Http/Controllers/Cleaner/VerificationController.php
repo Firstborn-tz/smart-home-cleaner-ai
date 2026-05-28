@@ -32,7 +32,7 @@ class VerificationController extends Controller
             ], 403);
         }
 
-        if (!in_array($booking->status, ['cleaner_accepted', 'in_progress'])) {
+        if (!in_array($booking->status, ['cleaner_assigned', 'cleaner_accepted', 'cleaner_arrived', 'in_progress'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Code can only be generated during active service'

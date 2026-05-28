@@ -17,9 +17,6 @@ class Service extends Model
         'description',
         'icon',
         'base_price',
-        'instant_booking_premium',
-        'weekend_premium',
-        'holiday_premium',
         'estimated_duration_minutes',
         'min_duration_minutes',
         'max_duration_minutes',
@@ -31,9 +28,6 @@ class Service extends Model
 
     protected $casts = [
         'base_price' => 'decimal:2',
-        'instant_booking_premium' => 'decimal:2',
-        'weekend_premium' => 'decimal:2',
-        'holiday_premium' => 'decimal:2',
         'required_skills' => 'array',
         'equipment_required' => 'array',
         'is_active' => 'boolean',
@@ -59,25 +53,21 @@ class Service extends Model
     }
 
     /**
-     * Calculate total price based on booking type
+     * Get the cleaner's custom price for this service
+     * Used when displaying prices to homeowners
      */
-    public function calculatePrice(string $bookingType, array $options = []): float
+    public function getCleanerPrice($cleanerId): ?float
     {
-        $price = $this->base_price;
-
-        if ($bookingType === 'instant') {
-            $price += $this->instant_booking_premium;
+        $cleaner = Cleaner::find($cleanerId);
+        if (!$cleaner || !$cleaner->custom_prices) {
+            return null;
         }
 
-        if (($options['is_weekend'] ?? false) && $this->weekend_premium > 0) {
-            $price += $this->weekend_premium;
-        }
+        $customPrices = is_string($cleaner->custom_prices) 
+            ? json_decode($cleaner->custom_prices, true) 
+            : $cleaner->custom_prices;
 
-        if (($options['is_holiday'] ?? false) && $this->holiday_premium > 0) {
-            $price += $this->holiday_premium;
-        }
-
-        return $price;
+        return $customPrices[$this->id] ?? null;
     }
 
     /**

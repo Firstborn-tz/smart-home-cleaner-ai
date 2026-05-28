@@ -1,183 +1,168 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $cleaner->business_name ?? $cleaner->user->full_name }} - SmartClean AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        @keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
-        .animate-slide-up { animation: slideUp 0.6s ease-out; }
-        .star-rating { color: #f59e0b; }
-    </style>
-@include('partials.dark-mode-init')
-</head>
-<body class="bg-gray-50">
+@extends('layouts.app')
 
+@section('title', $cleaner->business_name ?? $cleaner->user->full_name)
+@section('user_role', 'Cleaner Profile')
+@section('page_title', 'Cleaner Profile')
+@section('page_subtitle', 'View details and reviews')
+
+@section('content')
+<div>
     @php
-        $cleaner = $cleaner ?? App\Models\Cleaner::with('user', 'city', 'reviews')->find(request('id'));
-        $user = $cleaner->user;
-        $businessName = $cleaner->business_name ?? $user->full_name;
-        $reviews = $cleaner->reviews()->with('reviewer')->approved()->latest()->limit(20)->get();
+        $businessName = $cleaner->business_name ?? $cleaner->user->full_name;
+        $reviews = $cleaner->reviews()->with('reviewer.user')->approved()->latest()->limit(20)->get();
         $avgRating = $cleaner->rating ?? 0;
         $totalReviews = $cleaner->reviews()->count();
-        $portfolioImages = $cleaner->portfolio_images ?? [];
-        if (is_string($portfolioImages)) $portfolioImages = json_decode($portfolioImages, true) ?? [];
-        $certifications = $cleaner->certifications ?? [];
-        if (is_string($certifications)) $certifications = json_decode($certifications, true) ?? [];
-        $serviceAreas = $cleaner->service_areas ?? [];
-        if (is_string($serviceAreas)) $serviceAreas = json_decode($serviceAreas, true) ?? [];
-        $languages = $cleaner->languages ?? [];
-        if (is_string($languages)) $languages = json_decode($languages, true) ?? [];
-        $skills = $cleaner->service_skills ?? [];
-        if (is_string($skills)) $skills = json_decode($skills, true) ?? [];
+        $portfolioImages = is_string($cleaner->portfolio_images ?? '') ? json_decode($cleaner->portfolio_images, true) ?? [] : ($cleaner->portfolio_images ?? []);
+        $certifications = is_string($cleaner->certifications ?? '') ? json_decode($cleaner->certifications, true) ?? [] : ($cleaner->certifications ?? []);
+        $languages = is_string($cleaner->languages ?? '') ? json_decode($cleaner->languages, true) ?? [] : ($cleaner->languages ?? []);
     @endphp
 
-    <!-- COVER PHOTO -->
-    <div class="relative h-48 md:h-72 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+    {{-- ============================================ --}}
+    {{-- BACK BUTTON --}}
+    {{-- ============================================ --}}
+    <a href="javascript:history.back()" class="inline-flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 dark:border-gray-600 text-body rounded-xl font-semibold text-sm hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-all duration-300 mb-6 group">
+        <i class="fas fa-arrow-left text-xs group-hover:-translate-x-1 transition-transform"></i> Back
+    </a>
+
+    {{-- ============================================ --}}
+    {{-- COVER PHOTO --}}
+    {{-- ============================================ --}}
+    <div class="relative h-48 sm:h-56 md:h-64 rounded-3xl overflow-hidden mb-6 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-xl group">
         @if($cleaner->cover_photo)
-        <img src="{{ $cleaner->cover_photo }}" class="w-full h-full object-cover">
+        <img src="{{ $cleaner->cover_photo }}" class="w-full h-full object-cover" alt="Cover photo">
+        @else
+        {{-- Pattern fallback --}}
+        <div class="absolute inset-0 opacity-15">
+            <svg width="100%" height="100%">
+                <defs><pattern id="coverPat" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse"><circle cx="30" cy="30" r="2" fill="white"/></pattern></defs>
+                <rect width="100%" height="100%" fill="url(#coverPat)"/>
+            </svg>
+        </div>
         @endif
-        <div class="absolute inset-0 bg-black/30"></div>
-        <div class="absolute top-4 left-4">
-            <a href="/" class="text-white hover:text-blue-200 transition flex items-center space-x-2">
-                <i class="fas fa-arrow-left"></i> <span>Back</span>
-            </a>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+        
+        {{-- Profile Picture (Overlapping) --}}
+        <div class="absolute -bottom-12 left-6 sm:left-8">
+            <img src="{{ $cleaner->user->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($cleaner->user->full_name) . '&background=3b82f6&color=fff&bold=true&size=120' }}" 
+                 class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-[4px] border-white dark:border-gray-800 shadow-2xl object-cover ring-2 ring-gray-200/50 dark:ring-gray-700/50"
+                 alt="{{ $businessName }}">
         </div>
     </div>
 
-    <div class="max-w-6xl mx-auto px-4 md:px-6">
+    {{-- ============================================ --}}
+    {{-- PROFILE HEADER --}}
+    {{-- ============================================ --}}
+    <div class="ml-32 sm:ml-36 mb-6 mt-14 sm:mt-16">
+        <h2 class="text-2xl sm:text-3xl font-black text-heading tracking-tight">{{ $businessName }}</h2>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 text-sm">
+            {{-- Stars --}}
+            <div class="flex items-center gap-1.5 text-yellow-500">
+                @for($i = 1; $i <= 5; $i++)
+                    <i class="fas fa-star {{ $i <= round($avgRating) ? '' : 'text-gray-300 dark:text-gray-600' }} text-sm"></i>
+                @endfor
+                <span class="font-bold text-heading ml-1">{{ number_format($avgRating, 1) }}</span>
+            </div>
+            <span class="text-gray-300 dark:text-gray-600">|</span>
+            <span class="text-muted"><i class="fas fa-comment mr-1"></i> {{ $totalReviews }} reviews</span>
+            <span class="text-gray-300 dark:text-gray-600">|</span>
+            <span class="text-muted"><i class="fas fa-check-circle text-green-500 mr-1"></i> {{ $cleaner->total_completed_jobs }} jobs done</span>
+        </div>
         
-        <!-- PROFILE HEADER -->
-        <div class="relative -mt-16 bg-white rounded-3xl shadow-xl p-6 md:p-8 mb-8 animate-slide-up">
-            <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <img src="{{ $user->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($user->full_name) . '&background=3b82f6&color=fff&bold=true&size=100' }}" 
-                     class="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-white shadow-xl -mt-20 md:-mt-24 object-cover">
-                <div class="flex-1">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800">{{ $businessName }}</h1>
-                            <p class="text-gray-500 mt-1"><i class="fas fa-map-marker-alt text-red-400 mr-1"></i> {{ $cleaner->city->name ?? 'Tanzania' }}</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-3xl font-extrabold text-yellow-500">{{ number_format($avgRating, 1) }}</p>
-                            <div class="flex text-yellow-400 text-lg">
-                                @for($i = 1; $i <= 5; $i++)
-                                    @if($i <= round($avgRating))
-                                        <i class="fas fa-star"></i>
-                                    @elseif($i - 0.5 <= $avgRating)
-                                        <i class="fas fa-star-half-alt"></i>
-                                    @else
-                                        <i class="far fa-star"></i>
-                                    @endif
-                                @endfor
-                            </div>
-                            <p class="text-sm text-gray-500">{{ $totalReviews }} reviews</p>
-                        </div>
-                    </div>
+        {{-- Badges Row --}}
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+            @if($cleaner->is_verified)
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/20">
+                <i class="fas fa-shield-halved mr-1"></i> Verified
+            </span>
+            @endif
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/20">
+                <i class="fas fa-map-marker-alt mr-1"></i> {{ $cleaner->city->name ?? 'N/A' }}
+            </span>
+        </div>
+    </div>
 
-                    <div class="flex flex-wrap items-center gap-3 mt-4">
-                        <span class="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-bold">
-                            <i class="fas fa-shield-alt mr-1"></i> Verified
-                        </span>
-                        <span class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
-                            <i class="fas fa-check-circle mr-1"></i> {{ $cleaner->total_completed_jobs }} jobs done
-                        </span>
-                        <span class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
-                            <i class="fas fa-calendar-alt mr-1"></i> {{ $cleaner->experience_days_active }} days active
-                        </span>
+    {{-- ============================================ --}}
+    {{-- MAIN GRID --}}
+    {{-- ============================================ --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
+        
+        {{-- LEFT: MAIN CONTENT --}}
+        <div class="lg:col-span-2 space-y-5">
+            
+            {{-- About --}}
+            @if($cleaner->business_description)
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-info-circle text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading text-lg">About</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <p class="text-body leading-relaxed text-sm">{{ $cleaner->business_description }}</p>
+                </div>
+            </div>
+            @endif
+
+            {{-- Portfolio --}}
+            @if(!empty($portfolioImages))
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-pink-100 to-rose-200 dark:from-pink-900/40 dark:to-rose-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-images text-pink-600 dark:text-pink-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading text-lg">Portfolio</h3>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        @foreach($portfolioImages as $img)
+                        <div class="rounded-xl overflow-hidden aspect-square bg-gray-100 dark:bg-gray-700 shadow-md group cursor-pointer">
+                            <img src="{{ $img }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="Portfolio image" loading="lazy">
+                        </div>
+                        @endforeach
                     </div>
                 </div>
             </div>
-        </div>
+            @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- LEFT - Main Content -->
-            <div class="lg:col-span-2 space-y-8">
+            {{-- Reviews --}}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-yellow-100 to-amber-200 dark:from-yellow-900/40 dark:to-amber-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-star text-yellow-600 dark:text-yellow-400"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-heading text-lg">Reviews</h3>
+                            <p class="text-xs text-muted">{{ $totalReviews }} total</p>
+                        </div>
+                    </div>
+                </div>
                 
-                <!-- About -->
-                @if($cleaner->business_description)
-                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 animate-slide-up">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-info-circle text-blue-500 mr-2"></i> About</h2>
-                    <p class="text-gray-600 leading-relaxed">{{ $cleaner->business_description }}</p>
-                </div>
-                @endif
-
-                <!-- Portfolio Gallery -->
-                @if(!empty($portfolioImages))
-                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 animate-slide-up">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-images text-pink-500 mr-2"></i> Portfolio</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        @foreach($portfolioImages as $img)
-                        <div class="rounded-xl overflow-hidden aspect-square bg-gray-100">
-                            <img src="{{ $img }}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
-
-                <!-- Services Offered -->
-                @if(!empty($skills))
-                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 animate-slide-up">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-tools text-green-500 mr-2"></i> Services Offered</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        @foreach(\App\Models\Service::whereIn('id', $skills)->get() as $service)
-                        <div class="p-3 bg-gray-50 rounded-xl text-center">
-                            <p class="font-medium text-gray-700">{{ $service->name }}</p>
-                            <p class="text-sm text-gray-500">TZS {{ number_format($service->base_price) }}</p>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
-
-                <!-- Reviews Section -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 animate-slide-up">
-                    <h2 class="text-xl font-bold text-gray-800 mb-6">
-                        <i class="fas fa-star text-yellow-500 mr-2"></i> Reviews ({{ $totalReviews }})
-                    </h2>
-                    
+                <div class="p-6">
                     @if($reviews->count() > 0)
-                    <!-- Rating Summary -->
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 p-4 bg-gray-50 rounded-xl">
-                        @for($i = 5; $i >= 1; $i--)
-                        @php
-                            $count = $cleaner->reviews()->where('rating', '>=', $i)->where('rating', '<', $i + 1)->count();
-                            $percentage = $totalReviews > 0 ? ($count / $totalReviews) * 100 : 0;
-                        @endphp
-                        <div class="text-center">
-                            <p class="text-sm text-gray-500">{{ $i }} <i class="fas fa-star text-yellow-400"></i></p>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
-                                <div class="bg-yellow-400 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
-                            </div>
-                            <p class="text-xs text-gray-400 mt-1">{{ $count }}</p>
-                        </div>
-                        @endfor
-                    </div>
-
-                    <!-- Review List -->
-                    <div class="space-y-6">
+                    <div class="space-y-5">
                         @foreach($reviews as $review)
-                        <div class="border-b border-gray-100 pb-6 last:border-0">
-                            <div class="flex items-start space-x-3">
-                                <img src="https://ui-avatars.com/api/?name={{ urlencode($review->reviewer->user->full_name ?? 'User') }}&background=3b82f6&color=fff&size=40" class="w-10 h-10 rounded-full">
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between">
-                                        <p class="font-bold text-gray-800">{{ $review->reviewer->user->full_name ?? 'Anonymous' }}</p>
-                                        <span class="text-sm text-gray-400">{{ $review->created_at->diffForHumans() }}</span>
+                        <div class="pb-5 border-b border-gray-100 dark:border-gray-700 last:border-0 last:pb-0">
+                            <div class="flex items-start gap-3">
+                                <img src="https://ui-avatars.com/api/?name={{ urlencode($review->reviewer->user->full_name ?? 'User') }}&background=3b82f6&color=fff&size=40&bold=true" 
+                                     class="w-10 h-10 rounded-xl ring-2 ring-blue-100 dark:ring-blue-500/20 flex-shrink-0">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <p class="font-bold text-sm text-heading truncate">{{ $review->reviewer->user->full_name ?? 'Anonymous' }}</p>
+                                        <span class="text-xs text-muted flex-shrink-0">{{ $review->created_at->diffForHumans() }}</span>
                                     </div>
-                                    <div class="flex text-yellow-400 text-sm mt-1">
+                                    <div class="flex items-center gap-0.5 text-yellow-500 mt-1">
                                         @for($i = 1; $i <= 5; $i++)
-                                            <i class="fas fa-star {{ $i <= $review->rating ? '' : 'text-gray-200' }}"></i>
+                                            <i class="fas fa-star text-[10px] {{ $i <= $review->rating ? '' : 'text-gray-200 dark:text-gray-600' }}"></i>
                                         @endfor
                                     </div>
                                     @if($review->body)
-                                    <p class="text-gray-600 mt-2">{{ $review->body }}</p>
+                                    <p class="text-body text-sm mt-2 leading-relaxed">{{ $review->body }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -185,87 +170,134 @@
                         @endforeach
                     </div>
                     @else
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-comment-slash text-4xl mb-3"></i>
-                        <p>No reviews yet</p>
+                    <div class="text-center py-10">
+                        <div class="w-14 h-14 bg-linear-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-star text-gray-300 dark:text-gray-500 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-heading">No Reviews Yet</h4>
+                        <p class="text-sm text-muted mt-1">Be the first to review this cleaner</p>
                     </div>
                     @endif
                 </div>
             </div>
+        </div>
 
-            <!-- RIGHT - Sidebar Info -->
-            <div class="space-y-6">
-                
-                <!-- Quick Stats -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
-                    <h3 class="font-bold text-gray-800 mb-4">Quick Stats</h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between"><span class="text-gray-500"><i class="fas fa-check-circle text-green-500 mr-2"></i>Jobs Done</span><span class="font-bold">{{ $cleaner->total_completed_jobs }}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500"><i class="fas fa-percentage text-purple-500 mr-2"></i>Completion</span><span class="font-bold">{{ number_format($cleaner->completion_rate, 1) }}%</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500"><i class="fas fa-clock text-blue-500 mr-2"></i>Response</span><span class="font-bold">{{ round($cleaner->avg_response_time_seconds / 60, 1) }} min</span></div>
-                        @if($cleaner->team_size > 1)
-                        <div class="flex justify-between"><span class="text-gray-500"><i class="fas fa-users text-indigo-500 mr-2"></i>Team</span><span class="font-bold">{{ $cleaner->team_size }} members</span></div>
-                        @endif
+        {{-- RIGHT: SIDEBAR --}}
+        <div class="space-y-5">
+            
+            {{-- Quick Stats --}}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-chart-bar text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading">Quick Stats</h3>
                     </div>
                 </div>
+                <div class="p-5 divide-y divide-gray-100 dark:divide-gray-700">
+                    @php
+                        $sidebarStats = [
+                            ['icon' => 'fa-check-circle', 'color' => 'green', 'label' => 'Jobs Done', 'value' => $cleaner->total_completed_jobs],
+                            ['icon' => 'fa-chart-line', 'color' => 'green', 'label' => 'Completion Rate', 'value' => number_format($cleaner->completion_rate, 0) . '%'],
+                            ['icon' => 'fa-calendar', 'color' => 'blue', 'label' => 'Experience', 'value' => $cleaner->experience_days_active . ' days'],
+                            ['icon' => 'fa-clock', 'color' => 'orange', 'label' => 'Response Time', 'value' => round($cleaner->avg_response_time_seconds / 60, 1) . ' min'],
+                            ['icon' => 'fa-map-marker-alt', 'color' => 'red', 'label' => 'Location', 'value' => $cleaner->city->name ?? 'N/A'],
+                        ];
+                    @endphp
+                    @foreach($sidebarStats as $stat)
+                    <div class="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                        <div class="flex items-center gap-2.5 text-sm text-muted">
+                            <i class="fas {{ $stat['icon'] }} text-{{ $stat['color'] }}-500 w-4 text-xs"></i>
+                            {{ $stat['label'] }}
+                        </div>
+                        <span class="text-sm font-bold text-heading">{{ $stat['value'] }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
 
-                <!-- Languages -->
-                @if(!empty($languages))
-                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
-                    <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-language text-purple-500 mr-2"></i> Languages</h3>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach($languages as $lang)
-                        <span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm">{{ $lang }}</span>
-                        @endforeach
+            {{-- Certifications --}}
+            @if(!empty($certifications))
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-yellow-100 to-amber-200 dark:from-yellow-900/40 dark:to-amber-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-certificate text-yellow-600 dark:text-yellow-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading">Certifications</h3>
                     </div>
                 </div>
-                @endif
-
-                <!-- Certifications -->
-                @if(!empty($certifications))
-                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
-                    <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-certificate text-yellow-500 mr-2"></i> Certifications</h3>
-                    <ul class="space-y-2">
+                <div class="p-5">
+                    <ul class="space-y-2.5">
                         @foreach($certifications as $cert)
-                        <li class="flex items-center text-sm text-gray-600"><i class="fas fa-check text-green-500 mr-2"></i> {{ $cert }}</li>
+                        <li class="flex items-center gap-2.5 text-sm text-body">
+                            <div class="w-6 h-6 bg-green-50 dark:bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-check text-green-500 text-xs"></i>
+                            </div>
+                            {{ $cert }}
+                        </li>
                         @endforeach
                     </ul>
                 </div>
-                @endif
+            </div>
+            @endif
 
-                <!-- Service Areas -->
-                @if(!empty($serviceAreas))
-                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
-                    <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-map-marked-alt text-red-500 mr-2"></i> Service Areas</h3>
+            {{-- Languages --}}
+            @if(!empty($languages))
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-language text-purple-600 dark:text-purple-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading">Languages</h3>
+                    </div>
+                </div>
+                <div class="p-5">
                     <div class="flex flex-wrap gap-2">
-                        @foreach($serviceAreas as $area)
-                        <span class="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm">{{ $area }}</span>
+                        @foreach($languages as $lang)
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20">
+                            {{ $lang }}
+                        </span>
                         @endforeach
                     </div>
                 </div>
-                @endif
+            </div>
+            @endif
 
-                <!-- Contact -->
-                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up">
-                    <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-phone text-green-500 mr-2"></i> Contact</h3>
+            {{-- Contact --}}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-linear-to-br from-green-100 to-emerald-200 dark:from-green-900/40 dark:to-emerald-800/40 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-phone text-green-600 dark:text-green-400"></i>
+                        </div>
+                        <h3 class="font-bold text-heading">Contact</h3>
+                    </div>
+                </div>
+                <div class="p-5 space-y-3">
                     @if($cleaner->business_phone)
-                    <a href="tel:{{ $cleaner->business_phone }}" class="flex items-center text-blue-600 hover:text-blue-700 mb-2">
-                        <i class="fas fa-phone mr-2"></i> {{ $cleaner->business_phone }}
+                    <a href="tel:{{ $cleaner->business_phone }}" 
+                       class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded-xl font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all duration-300">
+                        <div class="w-8 h-8 bg-blue-100 dark:bg-blue-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-phone text-blue-500 text-xs"></i>
+                        </div>
+                        {{ $cleaner->business_phone }}
                     </a>
                     @endif
                     @if($cleaner->business_email)
-                    <a href="mailto:{{ $cleaner->business_email }}" class="flex items-center text-blue-600 hover:text-blue-700">
-                        <i class="fas fa-envelope mr-2"></i> {{ $cleaner->business_email }}
+                    <a href="mailto:{{ $cleaner->business_email }}" 
+                       class="flex items-center gap-3 px-4 py-3 bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-xl font-semibold text-sm hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-all duration-300">
+                        <div class="w-8 h-8 bg-purple-100 dark:bg-purple-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-envelope text-purple-500 text-xs"></i>
+                        </div>
+                        {{ $cleaner->business_email }}
                     </a>
                     @endif
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Footer -->
-    <div class="text-center py-8 text-gray-500 text-sm mt-12 border-t">
-        <p>Powered by SmartClean AI</p>
-    </div>
-</body>
-</html>
+</div>
+@endsection

@@ -38,9 +38,31 @@ class AuthController extends Controller
                 'last_login_ip' => $request->ip(),
             ]);
 
+            // Check if cleaner is approved
+            if ($user->user_type === 'cleaner') {
+                $cleaner = $user->cleaner;
+                if (!$cleaner || $cleaner->registration_status !== 'approved') {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    
+                    $status = $cleaner->registration_status ?? 'pending';
+                    
+                    if ($status === 'rejected') {
+                        $message = 'Your registration has been REJECTED. Reason: ' . ($cleaner->registration_notes ?? 'No reason provided.') . ' You may reapply with updated information.';
+                    } else {
+                        $message = 'Your registration is still under review. You will be notified once approved. Please check back later.';
+                    }
+                    
+                    return back()->withErrors([
+                        'email' => $message,
+                    ])->onlyInput('email');
+                }
+            }
+            
             return match($user->user_type) {
                 'admin', 'super_admin' => redirect()->intended(route('admin.dashboard')),
-                'cleaner' => $this->redirectCleaner($user),
+                'cleaner' => redirect()->intended(route('cleaner.dashboard')),
                 'homeowner' => redirect()->intended(route('homeowner.dashboard')),
                 default => redirect('/'),
             };
@@ -50,7 +72,7 @@ class AuthController extends Controller
             'email' => 'Invalid email or password.',
         ])->onlyInput('email');
     }
-
+    
     /**
      * Redirect cleaner based on registration status
      */
@@ -183,21 +205,23 @@ class AuthController extends Controller
         }
 
         // Find or create city
-        $cityId = 1;
-        if ($request->city_name) {
-            $city = City::firstOrCreate(
-                ['name' => $request->city_name],
-                [
-                    'region' => $regionName ?? $request->city_name,
-                    'code' => strtoupper(substr($request->city_name, 0, 3)),
-                    'latitude' => $request->latitude ?? -6.7924,
-                    'longitude' => $request->longitude ?? 39.2083,
-                    'is_active' => true,
-                    'sort_order' => 99,
-                ]
-            );
-            $cityId = $city->id;
+        $city = City::where('name', $request->city_name)->first();
+        if (!$city) {
+            $code = strtoupper(substr($request->city_name, 0, 3));
+            if (City::where('code', $code)->exists()) {
+                $code = $code . rand(10, 99);
+            }
+            $city = City::create([
+                'name' => $request->city_name,
+                'region' => $regionName ?? $request->city_name,
+                'code' => $code,
+                'latitude' => $request->latitude ?? -6.7924,
+                'longitude' => $request->longitude ?? 39.2083,
+                'is_active' => true,
+                'sort_order' => 99,
+            ]);
         }
+        $cityId = $city->id;
 
         $fullStreet = $request->street ?? '';
         if ($request->house_number) {
@@ -240,6 +264,7 @@ class AuthController extends Controller
 
         // Create in-app notification for cleaner
         \App\Models\Notification::create([
+            'uuid' => (string) Str::uuid(),
             'user_id' => $user->id,
             'type' => 'registration_submitted',
             'title' => 'Registration Submitted',
@@ -257,8 +282,8 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Registration submitted successfully!',
-            'redirect' => '/cleaner/registration-status',
+            'message' => 'Registration submitted successfully! You cannot login until an admin approves your application. You will be notified once approved.',
+            'redirect' => '/',
         ]);
     }
 
@@ -298,17 +323,20 @@ class AuthController extends Controller
         // Find or create city
         $cityId = null;
         if ($request->city_name) {
-            $city = City::firstOrCreate(
-                ['name' => $request->city_name],
-                [
+            $city = City::where('name', $request->city_name)->first();
+            if (!$city) {
+                $code = strtoupper(substr($request->city_name, 0, 3));
+                if (City::where('code', $code)->exists()) { $code = $code . rand(10, 99); }
+                $city = City::create([
+                    'name' => $request->city_name,
                     'region' => $regionName ?? $request->city_name,
-                    'code' => strtoupper(substr($request->city_name, 0, 3)),
+                    'code' => $code,
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_active' => true,
                     'sort_order' => 99,
-                ]
-            );
+                ]);
+            }
             $cityId = $city->id;
         }
 
@@ -348,6 +376,7 @@ class AuthController extends Controller
 
         // Create welcome notification
         \App\Models\Notification::create([
+            'uuid' => (string) Str::uuid(),
             'user_id' => $user->id,
             'type' => 'welcome',
             'title' => 'Welcome to SmartClean AI!',
@@ -374,6 +403,7 @@ class AuthController extends Controller
         
         foreach ($admins as $admin) {
             \App\Models\Notification::create([
+                'uuid' => (string) Str::uuid(),
                 'user_id' => $admin->id,
                 'type' => 'cleaner_registration',
                 'title' => 'New Cleaner Registration',

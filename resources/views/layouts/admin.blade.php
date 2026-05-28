@@ -1,307 +1,438 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full scroll-smooth" x-data="adminShell()" x-init="init()" :class="{ 'dark': darkMode }">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Admin Dashboard') - Smart Home Cleaner AI</title>
-    
-    <!-- TailwindCSS -->
+    <title>@yield('title', 'Admin Dashboard') — SmartClean AI</title>
+
+    {{-- Tailwind CSS --}}
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                        }
-                    },
+                    fontFamily: { 'sans': ['Inter', 'system-ui', 'sans-serif'] },
                     animation: {
-                        'slide-in': 'slideIn 0.3s ease-out',
-                        'slide-up': 'slideUp 0.3s ease-out',
-                        'fade-in': 'fadeIn 0.2s ease-out',
-                        'pulse-green': 'pulseGreen 2s infinite',
-                        'count-up': 'countUp 0.5s ease-out',
+                        'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'pulse-ring': 'pulseRing 2.5s infinite',
+                        'gradient-shift': 'gradientShift 5s ease infinite',
                     },
                     keyframes: {
-                        slideIn: {
-                            '0%': { transform: 'translateX(-100%)', opacity: '0' },
-                            '100%': { transform: 'translateX(0)', opacity: '1' },
-                        },
-                        slideUp: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)', opacity: '1' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        },
-                        pulseGreen: {
-                            '0%': { boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.7)' },
-                            '70%': { boxShadow: '0 0 0 10px rgba(34, 197, 94, 0)' },
-                            '100%': { boxShadow: '0 0 0 0 rgba(34, 197, 94, 0)' },
-                        },
-                        countUp: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        pulseRing: { '0%': { boxShadow: '0 0 0 0 rgba(59,130,246,0.4)' }, '70%': { boxShadow: '0 0 0 20px rgba(59,130,246,0)' }, '100%': { boxShadow: '0 0 0 0 rgba(59,130,246,0)' } },
+                        gradientShift: { '0%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' }, '100%': { backgroundPosition: '0% 50%' } },
                     }
                 }
             }
         }
     </script>
-    
-    <!-- Alpine.js -->
+
+    {{-- Alpine.js --}}
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <!-- Chart.js -->
+
+    {{-- Chart.js --}}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
-    <!-- ApexCharts -->
+
+    {{-- ApexCharts --}}
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
+    {{-- Font Awesome 6.5.1 --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    {{-- Google Fonts - Inter --}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    {{-- Dark Mode Flash Prevention --}}
+    <script>
+        (function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
     <style>
+        /* ============================================ */
+        /* GLOBAL RESET */
+        /* ============================================ */
+        * { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        /* ============================================ */
+        /* SIDEBAR */
+        /* ============================================ */
         .sidebar {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             width: 280px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            box-shadow: 4px 0 30px rgba(0,0,0,0.04);
         }
-        .sidebar.collapsed {
-            width: 80px;
-        }
+        .dark .sidebar { background: #0f172a; border-color: #1e293b; box-shadow: 4px 0 30px rgba(0,0,0,0.4); }
+        .sidebar.collapsed { width: 80px; }
         .sidebar.collapsed .nav-text,
-        .sidebar.collapsed .user-info {
-            display: none;
+        .sidebar.collapsed .user-info-text,
+        .sidebar.collapsed .sidebar-section-title,
+        .sidebar.collapsed .sidebar-badge { display: none; }
+        .sidebar.collapsed .nav-link { justify-content: center; padding: 12px; border-radius: 14px; }
+        .sidebar.collapsed .nav-icon { margin: 0 auto; }
+
+        /* Main Content */
+        .main-content { margin-left: 280px; transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .main-content.expanded { margin-left: 80px; }
+
+        /* Hover Expand */
+        @media (min-width: 1024px) {
+            .sidebar-wrapper:hover .sidebar.collapsed { width: 280px; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-text,
+            .sidebar-wrapper:hover .sidebar.collapsed .user-info-text,
+            .sidebar-wrapper:hover .sidebar.collapsed .sidebar-section-title,
+            .sidebar-wrapper:hover .sidebar.collapsed .sidebar-badge { display: block; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-link { justify-content: flex-start; padding: 10px 16px; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-icon { margin: 0; }
         }
-        .sidebar.collapsed .nav-icon {
-            margin: 0 auto;
+
+        /* Mobile */
+        @media (max-width: 1023px) {
+            .sidebar-wrapper { position: fixed; left: -300px; transition: left 0.3s ease; width: 280px; z-index: 50; }
+            .sidebar-wrapper.mobile-open { left: 0; }
+            .sidebar { width: 280px; }
+            .main-content { margin-left: 0 !important; }
+            .mobile-overlay { display: none; }
+            .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; }
         }
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+
+        /* ============================================ */
+        /* GLASS MORPHISM */
+        /* ============================================ */
+        .glass {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
         }
-        .dark .glass-effect {
-            background: rgba(31, 41, 55, 0.95);
-            border: 1px solid rgba(75, 85, 99, 0.3);
+        .dark .glass { background: rgba(15,23,42,0.85); }
+
+        /* ============================================ */
+        /* CARD HOVER */
+        /* ============================================ */
+        .card-hover-lift {
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .card-hover {
-            transition: all 0.3s ease;
+        .card-hover-lift:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px -8px rgba(0,0,0,0.12);
         }
-        .card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-        .toast {
-            animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
-        }
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
+        .dark .card-hover-lift:hover { box-shadow: 0 16px 32px -8px rgba(0,0,0,0.5); }
+
+        /* ============================================ */
+        /* TEXT UTILITIES */
+        /* ============================================ */
+        .text-heading { color: #0f172a; }
+        .dark .text-heading { color: #f1f5f9; }
+        .text-body { color: #475569; }
+        .dark .text-body { color: #cbd5e1; }
+        .text-muted { color: #64748b; }
+        .dark .text-muted { color: #94a3b8; }
+
+        /* ============================================ */
+        /* STAT NUMBER */
+        /* ============================================ */
+        .stat-number { font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+
+        /* ============================================ */
+        /* SCROLLBAR */
+        /* ============================================ */
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .dark .sidebar::-webkit-scrollbar-thumb { background: #334155; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* ============================================ */
+        /* SCROLLBAR HIDE */
+        /* ============================================ */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ============================================ */
+        /* DARK MODE OVERRIDES */
+        /* ============================================ */
+        .dark body { background-color: #020617; }
+        .dark .bg-white { background-color: #1e293b; }
+        .dark .bg-gray-50 { background-color: #0f172a; }
+        .dark .bg-gray-100 { background-color: #1e293b; }
+        .dark .text-gray-800 { color: #f1f5f9; }
+        .dark .text-gray-700 { color: #e2e8f0; }
+        .dark .text-gray-600 { color: #cbd5e1; }
+        .dark .text-gray-500 { color: #94a3b8; }
+        .dark .text-gray-400 { color: #64748b; }
+        .dark .border-gray-200, .dark .border-gray-100 { border-color: #334155; }
+        .dark .border-gray-300 { border-color: #475569; }
+        .dark .hover\:bg-gray-50:hover { background-color: #1e293b; }
+        .dark .hover\:bg-gray-100:hover { background-color: #334155; }
+        .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+        .dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.6); }
+        .dark input:not([type="checkbox"]):not([type="radio"]),
+        .dark select,
+        .dark textarea { background-color: #1e293b; color: #e2e8f0; border-color: #334155; }
+        .dark input::placeholder,
+        .dark textarea::placeholder { color: #64748b; }
+        .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+        .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
     </style>
+
+    @stack('styles')
 </head>
-<body class="h-full bg-gray-50 dark:bg-gray-900" x-data="{ 
-    sidebarOpen: true, 
-    darkMode: localStorage.getItem('darkMode') === 'true',
-    toggleDarkMode() {
-        this.darkMode = !this.darkMode;
-        localStorage.setItem('darkMode', this.darkMode);
-        document.documentElement.classList.toggle('dark', this.darkMode);
-    }
-}" x-init="document.documentElement.classList.toggle('dark', darkMode)">
-    
-    <div class="flex h-full">
-        <!-- Left Sidebar -->
-        <aside class="sidebar glass-effect fixed left-0 top-0 h-full z-50 overflow-y-auto"
-               :class="{ 'collapsed': !sidebarOpen }">
-            <div class="p-6">
-                <!-- Logo -->
-                <div class="flex items-center justify-between mb-8">
-                    <div class="flex items-center space-x-3" x-show="sidebarOpen">
-                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                            <i class="fas fa-broom text-white text-lg"></i>
-                        </div>
-                        <div class="nav-text">
-                            <h1 class="text-lg font-bold text-gray-800 dark:text-white">SmartClean AI</h1>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Admin Panel</p>
-                        </div>
-                    </div>
-                    <button @click="sidebarOpen = !sidebarOpen" 
-                            class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <i class="fas fa-bars text-gray-600 dark:text-gray-300"></i>
-                    </button>
-                </div>
-                
-                <!-- User Info -->
-                <div class="user-info mb-8 p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 rounded-2xl">
-                    <div class="flex items-center space-x-3">
-                        <img src="{{ Auth::user()->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode(Auth::user()->full_name) . '&background=3b82f6&color=fff' }}" 
-                             class="w-12 h-12 rounded-xl border-2 border-white shadow-lg">
-                        <div>
-                            <p class="font-semibold text-gray-800 dark:text-white">{{ Auth::user()->full_name }}</p>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                {{ Auth::user()->user_type }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Navigation -->
-                <nav class="space-y-1">
-                    <a href="{{ route('admin.dashboard') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 
-                              {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-th-large w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Dashboard</span>
-                    </a>
-                    
-                    <a href="{{ route('admin.cleaners') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 
-                              {{ request()->routeIs('admin.cleaners*') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-users w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Cleaners</span>
-                        <span class="ml-auto bg-green-500 text-white text-xs px-2 py-1 rounded-full nav-text">
-                            {{ $stats['online_cleaners'] ?? 0 }} online
-                        </span>
-                    </a>
-                    
-                    <a href="{{ route('admin.cleaners.monitor') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 
-                              {{ request()->routeIs('admin.cleaners.monitor') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-map-marker-alt w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Live Monitor</span>
-                    </a>
-                    
-                    <a href="{{ route('admin.cities.index') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-                              {{ request()->routeIs('admin.cities*') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-city w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Cities</span>
-                    </a>
-                    
-                    <a href="{{ route('admin.commissions') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-                              {{ request()->routeIs('admin.commissions*') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-money-bill-wave w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Commissions</span>
-                    </a>
-                    
-                    <a href="{{ route('admin.ai.performance') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-                              {{ request()->routeIs('admin.ai*') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-brain w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">AI Performance</span>
-                    </a>
-                    
-                    <a href="{{ route('admin.reports') }}" 
-                       class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-                              {{ request()->routeIs('admin.reports*') ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                        <i class="fas fa-chart-bar w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Reports</span>
-                    </a>
-                </nav>
-            </div>
+<body class="h-full bg-gray-50 dark:bg-[#020617] text-gray-800 dark:text-gray-200">
+
+    {{-- Mobile Overlay --}}
+    <div class="mobile-overlay" :class="{ 'active': sidebarMobileOpen }" @click="sidebarMobileOpen = false"></div>
+
+    {{-- ============================================ --}}
+    {{-- SIDEBAR --}}
+    {{-- ============================================ --}}
+    <div class="sidebar-wrapper fixed left-0 top-0 h-full z-50" :class="{ 'mobile-open': sidebarMobileOpen }">
+        <aside class="sidebar flex flex-col h-full overflow-y-auto" :class="{ 'collapsed': !sidebarOpen && !isMobile }">
             
-            <!-- Sidebar Footer -->
-            <div class="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200 dark:border-gray-700">
-                <button @click="toggleDarkMode()" 
-                        class="flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i class="fas fa-moon w-5 text-center nav-icon"></i>
-                    <span class="nav-text font-medium">Dark Mode</span>
+            {{-- Brand Header --}}
+            <div class="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between flex-shrink-0">
+                <a href="/admin/dashboard" class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/25">
+                        <i class="fas fa-broom text-white text-sm"></i>
+                    </div>
+                    <div class="nav-text">
+                        <h1 class="font-black text-base text-heading leading-tight tracking-tight">SmartClean <span class="text-blue-600 dark:text-blue-400">AI</span></h1>
+                        <p class="text-[10px] text-muted font-medium uppercase tracking-wider">Admin Panel</p>
+                    </div>
+                </a>
+                <button @click="toggleSidebar()" class="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex-shrink-0" title="Toggle Sidebar">
+                    <i class="fas fa-outdent text-muted text-sm"></i>
                 </button>
-                
-                <form method="POST" action="{{ route('logout') }}" class="mt-2">
+                <button @click="sidebarMobileOpen = false" class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex-shrink-0">
+                    <i class="fas fa-times text-muted text-lg"></i>
+                </button>
+            </div>
+
+            {{-- User Info --}}
+            <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <img src="{{ Auth::user()->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode(Auth::user()->full_name ?? 'Admin') . '&background=3b82f6&color=fff&size=40&bold=true' }}" 
+                         class="w-10 h-10 rounded-xl ring-2 ring-blue-100 dark:ring-blue-500/20 flex-shrink-0">
+                    <div class="user-info-text min-w-0">
+                        <p class="font-bold text-sm text-heading truncate">{{ Auth::user()->full_name ?? 'Administrator' }}</p>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/20">
+                            <span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Admin
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Navigation --}}
+            <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto scrollbar-hide">
+                @php
+                    $currentRouteName = request()->route()->getName();
+                    $navGroups = [
+                        'Main' => [
+                            ['route' => 'admin.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
+                            ['route' => 'admin.cleaner-requests', 'icon' => 'fa-user-clock', 'label' => 'Reg. Requests', 'badge' => App\Models\Cleaner::where('is_verified', false)->count()],
+                            ['route' => 'admin.cleaners', 'icon' => 'fa-users', 'label' => 'All Cleaners'],
+                        ],
+                        'Management' => [
+                            ['route' => 'admin.cities.index', 'icon' => 'fa-city', 'label' => 'Cities'],
+                            ['route' => 'admin.regions', 'icon' => 'fa-globe-africa', 'label' => 'Regions'],
+                            ['route' => 'admin.services', 'icon' => 'fa-broom', 'label' => 'Services'],
+                            ['route' => 'admin.commissions', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Commissions'],
+                        ],
+                        'Analytics' => [
+                            ['route' => 'admin.ai-status', 'icon' => 'fa-brain', 'label' => 'AI Status'],
+                            ['route' => 'admin.reports', 'icon' => 'fa-chart-bar', 'label' => 'Reports'],
+                        ],
+                    ];
+                @endphp
+
+                @foreach($navGroups as $groupName => $items)
+                <div class="sidebar-section-title px-2 pt-4 pb-1">
+                    <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{{ $groupName }}</p>
+                </div>
+                @foreach($items as $item)
+                @php $isActive = $currentRouteName === ($item['route'] ?? '') || request()->routeIs(($item['route'] ?? '') . '*'); @endphp
+                <a href="{{ isset($item['route']) && Route::has($item['route']) ? route($item['route']) : '#' }}" 
+                   class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
+                          {{ $isActive ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25' : 'text-body hover:bg-gray-100 dark:hover:bg-gray-800' }}">
+                    <i class="fas {{ $item['icon'] }} w-5 text-center nav-icon flex-shrink-0"></i>
+                    <span class="nav-text flex-1">{{ $item['label'] }}</span>
+                    @if(isset($item['badge']) && $item['badge'] > 0)
+                    <span class="sidebar-badge bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{{ $item['badge'] }}</span>
+                    @endif
+                </a>
+                @endforeach
+                @endforeach
+            </nav>
+
+            {{-- Sidebar Footer --}}
+            <div class="flex-shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 space-y-1">
+                {{-- Theme Toggle --}}
+                <button @click="toggleTheme()" 
+                        class="flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 bg-gray-50 dark:bg-gray-800 text-body hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        <i class="fas text-lg transition-all duration-500" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-500'"></i>
+                    </div>
+                    <span class="nav-text" x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+                </button>
+
+                {{-- Logout --}}
+                <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
                     <button type="submit" 
-                            class="flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <i class="fas fa-sign-out-alt w-5 text-center nav-icon"></i>
-                        <span class="nav-text font-medium">Logout</span>
+                            class="flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-200">
+                        <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-sign-out-alt text-lg"></i>
+                        </div>
+                        <span class="nav-text">Logout</span>
                     </button>
                 </form>
             </div>
         </aside>
+    </div>
+
+    {{-- ============================================ --}}
+    {{-- MAIN CONTENT --}}
+    {{-- ============================================ --}}
+    <div class="main-content" :class="{ 'expanded': !sidebarOpen && !isMobile }">
         
-        <!-- Main Content -->
-        <main class="flex-1 ml-[280px] transition-all duration-300" :class="{ 'ml-[80px]': !sidebarOpen }">
-            <!-- Top Bar -->
-            <div class="sticky top-0 z-40 glass-effect border-b border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between px-8 py-4">
+        {{-- Top Bar --}}
+        <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-gray-800/50">
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3">
+                {{-- Left --}}
+                <div class="flex items-center gap-4">
+                    <button @click="sidebarMobileOpen = !sidebarMobileOpen" 
+                            class="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                        <i class="fas fa-bars text-body text-xl"></i>
+                    </button>
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">@yield('page_title', 'Dashboard')</h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">@yield('page_subtitle', 'Overview')</p>
-                    </div>
-                    
-                    <div class="flex items-center space-x-4">
-                        <!-- Search -->
-                        <div class="relative">
-                            <input type="text" placeholder="Search..." 
-                                   class="w-64 px-4 py-2 pl-10 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
-                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                        </div>
-                        
-                        <!-- Notifications -->
-                        <button class="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                            <i class="fas fa-bell text-gray-600 dark:text-gray-300 text-xl"></i>
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">3</span>
-                        </button>
+                        <h2 class="text-lg sm:text-xl font-black text-heading tracking-tight">@yield('page_title', 'Dashboard')</h2>
+                        @hasSection('page_subtitle')
+                        <p class="text-xs text-muted hidden sm:block">@yield('page_subtitle')</p>
+                        @endif
                     </div>
                 </div>
+
+                {{-- Right --}}
+                <div class="flex items-center gap-2 sm:gap-3">
+                    {{-- Mobile Theme Toggle --}}
+                    <button @click="toggleTheme()" 
+                            class="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                            title="Toggle Theme">
+                        <i class="fas text-lg transition-all duration-500" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-500'"></i>
+                    </button>
+
+                    {{-- Search --}}
+                    <div class="hidden sm:flex relative">
+                        <input type="text" placeholder="Search..." 
+                               class="w-48 lg:w-64 pl-10 pr-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-800 text-body text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 outline-none transition-all duration-300 placeholder:text-gray-400">
+                        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-muted text-sm"></i>
+                    </div>
+
+                    {{-- Notification Bell --}}
+                    <div class="relative" x-data="{ notifOpen: false }">
+                        <button @click="notifOpen = !notifOpen" 
+                                class="relative w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            <i class="fas fa-bell text-body text-lg"></i>
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-lg">3</span>
+                        </button>
+                    </div>
+
+                    {{-- User Avatar --}}
+                    <img src="{{ Auth::user()->avatar_url ?? 'https://ui-avatars.com/api/?name=' . urlencode(Auth::user()->full_name ?? 'A') . '&background=3b82f6&color=fff&size=36&bold=true' }}" 
+                         class="w-9 h-9 rounded-xl ring-2 ring-gray-100 dark:ring-gray-700 flex-shrink-0 hidden sm:block">
+                </div>
             </div>
-            
-            <!-- Page Content -->
-            <div class="p-8 animate-fade-in">
-                @yield('content')
-            </div>
+        </header>
+
+        {{-- Page Content --}}
+        <main class="p-4 sm:p-6 lg:p-8 animate-fade-in">
+            @yield('content')
         </main>
+
+        {{-- Footer --}}
+        <footer class="border-t border-gray-200 dark:border-gray-800 px-6 py-4 text-center">
+            <p class="text-xs text-muted">&copy; {{ date('Y') }} SmartClean AI. All rights reserved.</p>
+        </footer>
     </div>
-    
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed bottom-4 right-4 z-[9999] space-y-2"></div>
-    
+
+    {{-- ============================================ --}}
+    {{-- TOAST SYSTEM --}}
+    {{-- ============================================ --}}
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] space-y-2 flex flex-col items-end"></div>
+
+    {{-- ============================================ --}}
+    {{-- SCRIPTS --}}
+    {{-- ============================================ --}}
     <script>
-        // Toast notification system
+        function adminShell() {
+            return {
+                darkMode: localStorage.getItem('darkMode') === 'true',
+                sidebarOpen: localStorage.getItem('sidebarCollapsed') !== 'true',
+                sidebarMobileOpen: false,
+                isMobile: window.innerWidth < 1024,
+                
+                init() {
+                    if (this.darkMode) document.documentElement.classList.add('dark');
+                    if (this.isMobile) this.sidebarOpen = true;
+                    
+                    window.addEventListener('resize', () => {
+                        this.isMobile = window.innerWidth < 1024;
+                        if (!this.isMobile) this.sidebarMobileOpen = false;
+                    });
+                },
+                
+                toggleSidebar() {
+                    this.sidebarOpen = !this.sidebarOpen;
+                    localStorage.setItem('sidebarCollapsed', !this.sidebarOpen);
+                },
+                
+                toggleTheme() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('darkMode', this.darkMode);
+                    document.documentElement.classList.toggle('dark', this.darkMode);
+                }
+            };
+        }
+
+        // Global Toast
         window.showToast = function(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const colors = {
-                success: 'bg-green-500',
-                error: 'bg-red-500',
-                warning: 'bg-yellow-500',
-                info: 'bg-blue-500'
+            const colors = { 
+                success: 'bg-gradient-to-r from-green-500 to-emerald-600', 
+                error: 'bg-gradient-to-r from-red-500 to-rose-600', 
+                warning: 'bg-gradient-to-r from-yellow-500 to-amber-600', 
+                info: 'bg-gradient-to-r from-blue-500 to-blue-600' 
             };
+            const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
             
-            toast.className = `toast px-6 py-4 rounded-2xl shadow-2xl text-white flex items-center space-x-3 ${colors[type] || colors.success}`;
-            toast.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i>
-                <span class="font-medium">${message}</span>
-            `;
-            
+            toast.className = `${colors[type] || colors.success} px-5 py-3.5 rounded-2xl shadow-2xl text-white flex items-center gap-3 animate-slide-up text-sm font-semibold`;
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.success} text-base"></i><span>${message}</span>`;
             container.appendChild(toast);
             
-            setTimeout(() => {
-                toast.remove();
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300); 
             }, 3000);
         };
     </script>
-    
+
     @stack('scripts')
 </body>
 </html>

@@ -40,7 +40,6 @@ Route::get('/api/ai-status', function () {
     return response()->json(['available' => false, 'status' => 'not_configured']);
 });
 
-
 Route::get('/test-ai', function () {
     $homeowner = App\Models\Homeowner::first();
     $service = App\Models\Service::first();
@@ -61,9 +60,11 @@ Route::get('/test-ai', function () {
     
     return response()->json($result);
 });
+
 // ============================================
 // PROTECTED ROUTES (Require Authentication)
 // ============================================
+
 Route::middleware('auth')->group(function () {
 
     // ============================================
@@ -103,17 +104,23 @@ Route::middleware('auth')->group(function () {
         Route::get('/regions', [App\Http\Controllers\Admin\RegionController::class, 'index'])->name('regions');
         Route::post('/regions/{region}/toggle-registration', [App\Http\Controllers\Admin\RegionController::class, 'toggleRegistration'])->name('regions.toggle-registration');
         Route::post('/ai/retrain', function () {
-        // Trigger AI model retraining (dispatch job)
-        \App\Jobs\TrainAIModelJob::dispatch();
-          return back()->with('success', 'AI model retraining initiated!');
-         })->name('admin.ai.retrain');
+            \App\Jobs\TrainAIModelJob::dispatch();
+            return back()->with('success', 'AI model retraining initiated!');
+        })->name('admin.ai.retrain');
 
-       
-       Route::get('/services', [App\Http\Controllers\Admin\ServiceController::class, 'index'])->name('services');
-       Route::post('/services/store', [App\Http\Controllers\Admin\ServiceController::class, 'store'])->name('services.store');
-       Route::post('/services/{service}/update', [App\Http\Controllers\Admin\ServiceController::class, 'update'])->name('services.update');
-       Route::delete('/services/{service}/delete', [App\Http\Controllers\Admin\ServiceController::class, 'destroy'])->name('services.destroy');
-       Route::post('/services/{service}/toggle-status', [App\Http\Controllers\Admin\ServiceController::class, 'toggleStatus'])->name('services.toggle-status');
+        // Services
+        Route::get('/services', [App\Http\Controllers\Admin\ServiceController::class, 'index'])->name('services');
+        Route::post('/services/store', [App\Http\Controllers\Admin\ServiceController::class, 'store'])->name('services.store');
+        Route::post('/services/{service}/update', [App\Http\Controllers\Admin\ServiceController::class, 'update'])->name('services.update');
+        Route::delete('/services/{service}/delete', [App\Http\Controllers\Admin\ServiceController::class, 'destroy'])->name('services.destroy');
+        Route::post('/services/{service}/toggle-status', [App\Http\Controllers\Admin\ServiceController::class, 'toggleStatus'])->name('services.toggle-status');
+
+        // Settings
+        Route::post('/settings/update-commission', function (Request $request) {
+            $request->validate(['commission_rate' => 'required|numeric|min:0|max:100']);
+            \App\Models\Setting::updateOrCreate(['key' => 'commission_rate'], ['value' => $request->commission_rate]);
+            return response()->json(['success' => true, 'message' => 'Commission rate updated!']);
+        })->name('settings.commission');
     });
 
     // ============================================
@@ -134,8 +141,12 @@ Route::middleware('auth')->group(function () {
             $booking = \App\Models\Booking::with(['service', 'cleaner.user', 'homeowner.user', 'verificationCodes'])->findOrFail($id);
             return view('cleaner.bookings.show', compact('booking'));
         })->name('bookings.show');
+
+        // Request Management
+        Route::get('/requests/pending', [App\Http\Controllers\Cleaner\BookingController::class, 'pendingRequests'])->name('requests.pending');
         Route::post('/bookings/{booking}/accept', [App\Http\Controllers\Cleaner\BookingController::class, 'accept'])->name('bookings.accept');
         Route::post('/bookings/{booking}/decline', [App\Http\Controllers\Cleaner\BookingController::class, 'decline'])->name('bookings.decline');
+        Route::post('/bookings/{booking}/arrive', [App\Http\Controllers\Cleaner\BookingController::class, 'confirmArrival'])->name('bookings.arrive');
         Route::post('/bookings/{booking}/start', [App\Http\Controllers\Cleaner\BookingController::class, 'startService'])->name('bookings.start');
         Route::post('/bookings/{booking}/complete', [App\Http\Controllers\Cleaner\BookingController::class, 'completeService'])->name('bookings.complete');
 
@@ -160,16 +171,41 @@ Route::middleware('auth')->group(function () {
         Route::post('/profile/update', [App\Http\Controllers\Cleaner\ProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/upload-avatar', [App\Http\Controllers\Cleaner\ProfileController::class, 'uploadAvatar'])->name('profile.upload-avatar');
         Route::post('/profile/change-password', [App\Http\Controllers\Cleaner\ProfileController::class, 'changePassword'])->name('profile.change-password');
-        //oute::post('/profile/update-shift', [App\Http\Controllers\Cleaner\ProfileController::class, 'updateShift'])->name('profile.update-shift');
 
         // Business Profile
         Route::get('/business-profile', function () { return view('cleaner.business-profile'); })->name('business-profile');
         Route::post('/business/save', [App\Http\Controllers\Cleaner\BusinessProfileController::class, 'save'])->name('business.save');
         Route::post('/business/upload-image', [App\Http\Controllers\Cleaner\BusinessProfileController::class, 'uploadImage'])->name('business.upload-image');
         Route::get('/registration-status', function () {
-         return view('cleaner.registration-status');
-            })->name('registration-status');
+            return view('cleaner.registration-status');
+        })->name('registration-status');
     });
+
+    // Cleaner Profile Data API (for homeowner dashboard modal)
+    Route::get('/cleaner/{id}/profile/data', function ($id) {
+        $cleaner = \App\Models\Cleaner::with('user')->findOrFail($id);
+        return response()->json([
+            'success' => true,
+            'cleaner' => [
+                'id' => $cleaner->id,
+                'name' => $cleaner->user->full_name,
+                'cleaner_id_number' => $cleaner->cleaner_id,
+                'rating' => round((float) $cleaner->rating, 1),
+                'completed_jobs' => (int) $cleaner->total_completed_jobs,
+                'completion_rate' => round((float) $cleaner->completion_rate, 1),
+                'cancellation_rate' => round((float) $cleaner->cancellation_rate, 1),
+                'experience_days' => (int) $cleaner->experience_days_active,
+                'avg_response_time_seconds' => (float) ($cleaner->avg_response_time_seconds ?? 120),
+                'business_name' => $cleaner->business_name,
+                'years_experience' => $cleaner->years_experience,
+                'team_size' => $cleaner->team_size,
+                'district' => $cleaner->district,
+                'region' => $cleaner->region,
+                'custom_prices' => is_string($cleaner->custom_prices) ? json_decode($cleaner->custom_prices, true) : ($cleaner->custom_prices ?? []),
+                'service_skills' => is_string($cleaner->service_skills) ? json_decode($cleaner->service_skills, true) : ($cleaner->service_skills ?? []),
+            ]
+        ]);
+    })->name('cleaner.profile.data');
 
     // ============================================
     // HOMEOWNER ROUTES
@@ -183,6 +219,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/bookings', [App\Http\Controllers\Homeowner\BookingController::class, 'store'])->name('bookings.store');
         Route::post('/recommendations', [App\Http\Controllers\Homeowner\BookingController::class, 'getRecommendations'])->name('recommendations');
 
+        // Active Requests & Cancel
+        Route::get('/requests/active', [App\Http\Controllers\Homeowner\BookingController::class, 'activeRequests'])->name('requests.active');
+        Route::post('/requests/{id}/cancel', [App\Http\Controllers\Homeowner\BookingController::class, 'cancelRequest'])->name('requests.cancel');
+
         // Service Tracking (BEFORE wildcard)
         Route::get('/bookings/{booking}/track', [App\Http\Controllers\Homeowner\ServiceController::class, 'track'])->name('service.track');
         Route::post('/bookings/{booking}/verify-start', [App\Http\Controllers\Homeowner\ServiceController::class, 'verifyAndStart'])->name('service.verify-start');
@@ -191,6 +231,13 @@ Route::middleware('auth')->group(function () {
 
         // Booking Details (wildcard LAST)
         Route::get('/bookings/{id}', [App\Http\Controllers\Homeowner\BookingController::class, 'show'])->name('bookings.show');
+
+        // Profile
+        Route::get('/profile', function () { return view('homeowner.profile'); })->name('profile');
+        Route::post('/profile/update', [App\Http\Controllers\Homeowner\ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/upload-avatar', [App\Http\Controllers\Homeowner\ProfileController::class, 'uploadAvatar'])->name('profile.upload-avatar');
+        Route::post('/profile/update-address', [App\Http\Controllers\Homeowner\ProfileController::class, 'updateAddress'])->name('profile.update-address');
+        Route::post('/profile/change-password', [App\Http\Controllers\Homeowner\ProfileController::class, 'changePassword'])->name('profile.change-password');
     });
 
     // ============================================
@@ -236,12 +283,9 @@ Route::middleware('auth')->group(function () {
         return response()->json(['success' => true]);
     })->name('api.notifications.mark-read');
 
-    // In routes/web.php
-Route::get('/admin/sms-balance', function () {
-    $sms = new \App\Services\SMS\BeemSMSService();
-    $balance = $sms->getBalance();
-    return response()->json($balance);
-   })->name('admin.sms-balance');
-
-   
+    Route::get('/admin/sms-balance', function () {
+        $sms = new \App\Services\SMS\BeemSMSService();
+        $balance = $sms->getBalance();
+        return response()->json($balance);
+    })->name('admin.sms-balance');
 });

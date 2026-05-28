@@ -1,228 +1,285 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Verification - SmartClean AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4" x-data="verificationSystem()">
+@extends('layouts.app')
 
-    <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-shield-alt text-white text-2xl"></i>
-            </div>
-            <h2 class="text-2xl font-bold text-gray-800">Service Verification</h2>
-            <p class="text-gray-500 mt-1">Enter the 6-digit code from the homeowner</p>
-        </div>
+@section('title', 'Service Verification')
+@section('user_role', 'Cleaner')
+@section('page_title', 'Service Verification')
+@section('page_subtitle', '#' . ($booking->booking_number ?? 'N/A'))
 
-        <!-- Booking Info -->
-        <div class="bg-blue-50 rounded-2xl p-4 mb-6">
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Booking</span>
-                <span class="font-mono font-bold" x-text="bookingNumber"></span>
-            </div>
-            <div class="flex justify-between text-sm mt-1">
-                <span class="text-gray-600">Status</span>
-                <span class="font-semibold text-blue-700" x-text="bookingStatus"></span>
-            </div>
-        </div>
-
-        <!-- Code Input -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
-            <div class="flex justify-center space-x-3 mb-4">
-                <template x-for="(digit, index) in codeDigits" :key="index">
-                    <input type="text" 
-                           :id="'digit-' + index"
-                           maxlength="1"
-                           x-model="codeDigits[index]"
-                           @input="handleDigitInput($event, index)"
-                           @keydown.backspace="handleBackspace($event, index)"
-                           @paste="handlePaste($event)"
-                           class="w-12 h-16 text-center text-2xl font-bold rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-                           :class="codeDigits[index] ? 'border-blue-300 bg-blue-50' : ''">
-                </template>
-            </div>
-        </div>
-
-        <!-- Attempts Info -->
-        <div class="bg-yellow-50 rounded-xl p-3 mb-6 text-center" x-show="remainingAttempts < 3">
-            <p class="text-sm text-yellow-700">
-                <i class="fas fa-exclamation-triangle mr-1"></i>
-                <span x-text="remainingAttempts"></span> attempt(s) remaining
-            </p>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="space-y-3">
-            <button @click="verifyCode()" 
-                    :disabled="!isCodeComplete() || submitting"
-                    class="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-bold text-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                <span x-show="!submitting">Verify & Complete Service</span>
-                <span x-show="submitting"><i class="fas fa-spinner fa-spin mr-2"></i> Verifying...</span>
-            </button>
+@section('content')
+<div x-data="verificationSystem()" x-init="init()">
+    
+    <div class="max-w-lg mx-auto">
+        {{-- ============================================ --}}
+        {{-- HEADER CARD --}}
+        {{-- ============================================ --}}
+        <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
             
-            <button @click="generateNewCode()" 
-                    :disabled="!canRegenerate || generating"
-                    class="w-full px-6 py-4 border-2 border-gray-200 rounded-2xl font-medium text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50">
-                <span x-show="!generating">Generate New Code</span>
-                <span x-show="generating"><i class="fas fa-spinner fa-spin mr-2"></i> Generating...</span>
-            </button>
-        </div>
-
-        <!-- Generated Code Display -->
-        <div x-show="generatedCode" class="mt-6 p-4 bg-green-50 rounded-2xl text-center">
-            <p class="text-sm text-green-700 mb-2">New verification code generated:</p>
-            <p class="text-4xl font-bold text-green-700 tracking-widest font-mono" x-text="generatedCode"></p>
-            <p class="text-xs text-green-500 mt-2">Share this code with the homeowner</p>
-            <p class="text-xs text-gray-500 mt-1">Code expires in 30 minutes</p>
-        </div>
-
-        <!-- Success Message -->
-        <div x-show="completed" class="mt-6 p-6 bg-green-50 rounded-2xl text-center">
-            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+            {{-- Header --}}
+            <div class="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 px-6 py-8 text-center text-white relative overflow-hidden">
+                <div class="absolute inset-0 opacity-10">
+                    <svg width="100%" height="100%">
+                        <defs><pattern id="verifyDots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="15" cy="15" r="1.5" fill="white"/></pattern></defs>
+                        <rect width="100%" height="100%" fill="url(#verifyDots)"/>
+                    </svg>
+                </div>
+                <div class="relative z-10">
+                    <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur shadow-2xl">
+                        <i class="fas fa-shield-halved text-white text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-black tracking-tight">Service Verification</h2>
+                    <p class="text-white/70 text-sm mt-1.5">Enter the 6-digit code from the homeowner</p>
+                </div>
             </div>
-            <h3 class="text-xl font-bold text-green-700">Service Completed!</h3>
-            <p class="text-sm text-green-600 mt-1">The booking has been marked as complete</p>
-            <a href="/cleaner/dashboard" class="inline-block mt-4 px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600">
-                Back to Dashboard
-            </a>
-        </div>
 
-        <!-- Error Message -->
-        <div x-show="errorMessage" class="mt-4 p-4 bg-red-50 rounded-xl text-center">
-            <p class="text-sm text-red-700" x-text="errorMessage"></p>
+            {{-- Body --}}
+            <div class="p-6 space-y-6">
+                
+                {{-- Booking Info --}}
+                <div class="bg-blue-50 dark:bg-blue-500/10 rounded-2xl p-4 border border-blue-100 dark:border-blue-500/20">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-muted flex items-center gap-1.5">
+                            <i class="fas fa-hashtag text-blue-400 text-xs"></i> Booking
+                        </span>
+                        <span class="font-mono font-bold text-heading" x-text="bookingNumber"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm mt-2 pt-2 border-t border-blue-100 dark:border-blue-500/10">
+                        <span class="text-muted flex items-center gap-1.5">
+                            <i class="fas fa-flag text-blue-400 text-xs"></i> Status
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300" x-text="bookingStatus"></span>
+                    </div>
+                </div>
+
+                {{-- Verification Code Input --}}
+                <div>
+                    <label class="block text-sm font-bold text-heading mb-4 text-center">
+                        <i class="fas fa-key text-blue-500 mr-1.5"></i> Verification Code
+                    </label>
+                    
+                    <div class="flex justify-center gap-2 sm:gap-3 mb-4">
+                        <template x-for="(digit, index) in codeDigits" :key="index">
+                            <input type="text" 
+                                   :id="'digit-' + index"
+                                   maxlength="1"
+                                   x-model="codeDigits[index]"
+                                   @input="handleDigitInput($event, index)"
+                                   @keydown.backspace="handleBackspace($event, index)"
+                                   @paste="handlePaste($event)"
+                                   class="w-12 h-16 sm:w-14 sm:h-18 text-center text-2xl sm:text-3xl font-black rounded-2xl border-2 transition-all duration-200 outline-none"
+                                   :class="codeDigits[index] ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 shadow-lg shadow-blue-500/10' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-heading'">
+                        </template>
+                    </div>
+                    
+                    <p class="text-xs text-muted text-center">
+                        Enter the 6-digit code provided by the homeowner
+                    </p>
+                </div>
+
+                {{-- Attempts Warning --}}
+                <div x-show="remainingAttempts < 3" x-transition class="bg-yellow-50 dark:bg-yellow-500/10 rounded-xl p-3 border border-yellow-200 dark:border-yellow-500/20 text-center">
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300 flex items-center justify-center gap-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span><strong x-text="remainingAttempts"></strong> attempt(s) remaining</span>
+                    </p>
+                </div>
+
+                {{-- Action Buttons --}}
+                <div class="space-y-3">
+                    <button @click="verifyCode()" 
+                            :disabled="!isCodeComplete() || submitting"
+                            class="w-full px-6 py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-2xl font-bold text-base shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.01] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+                        <span x-show="!submitting"><i class="fas fa-check-circle mr-2"></i> Verify & Complete Service</span>
+                        <span x-show="submitting"><i class="fas fa-spinner fa-spin mr-2"></i> Verifying...</span>
+                    </button>
+                    
+                    <button @click="generateNewCode()" 
+                            :disabled="!canRegenerate || generating"
+                            class="w-full px-6 py-4 border-2 border-gray-200 dark:border-gray-600 text-body rounded-2xl font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!generating"><i class="fas fa-sync-alt mr-2"></i> Generate New Code</span>
+                        <span x-show="generating"><i class="fas fa-spinner fa-spin mr-2"></i> Generating...</span>
+                    </button>
+                </div>
+
+                {{-- Generated Code Display --}}
+                <div x-show="generatedCode" x-transition class="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-500/5 dark:to-emerald-500/5 rounded-2xl p-6 text-center border border-green-200 dark:border-green-500/20">
+                    <p class="text-sm text-green-700 dark:text-green-300 mb-3 font-semibold">
+                        <i class="fas fa-key mr-1.5"></i> New verification code generated
+                    </p>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl py-4 px-6 inline-block shadow-md">
+                        <p class="text-4xl sm:text-5xl font-black text-green-600 dark:text-green-400 tracking-[0.3em] font-mono" x-text="generatedCode"></p>
+                    </div>
+                    <p class="text-xs text-green-600 dark:text-green-400 mt-3 flex items-center justify-center gap-1">
+                        <i class="fas fa-share"></i> Share this code with the homeowner
+                    </p>
+                    <p class="text-xs text-muted mt-1 flex items-center justify-center gap-1">
+                        <i class="fas fa-clock"></i> Code expires in 30 minutes
+                    </p>
+                </div>
+
+                {{-- Success Message --}}
+                <div x-show="completed" x-transition class="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-500/5 dark:to-emerald-500/5 rounded-2xl p-8 text-center border border-green-200 dark:border-green-500/20">
+                    <div class="w-20 h-20 bg-linear-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-green-500/25">
+                        <i class="fas fa-check-circle text-white text-3xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-green-700 dark:text-green-300">Service Completed!</h3>
+                    <p class="text-green-600 dark:text-green-400 text-sm mt-2">The booking has been marked as complete</p>
+                    <a href="/cleaner/dashboard" 
+                       class="inline-flex items-center gap-2 mt-6 px-6 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-green-500/25 hover:shadow-green-500/40 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-th-large"></i> Back to Dashboard
+                    </a>
+                </div>
+
+                {{-- Error Message --}}
+                <div x-show="errorMessage" x-transition class="bg-red-50 dark:bg-red-500/10 rounded-xl p-4 border border-red-200 dark:border-red-500/20 text-center">
+                    <p class="text-sm text-red-700 dark:text-red-300 flex items-center justify-center gap-2">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span x-text="errorMessage"></span>
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
+</div>
+@endsection
 
-    <script>
-        function verificationSystem() {
-            return {
-                bookingId: '{{ $booking->id ?? "" }}',
-                bookingNumber: '{{ $booking->booking_number ?? "N/A" }}',
-                bookingStatus: '{{ $booking->status ?? "N/A" }}',
-                codeDigits: ['', '', '', '', '', ''],
-                remainingAttempts: 3,
-                canRegenerate: true,
-                generatedCode: '',
-                submitting: false,
-                generating: false,
-                completed: false,
-                errorMessage: '',
+@push('scripts')
+<script>
+    function verificationSystem() {
+        return {
+            bookingId: '{{ $booking->id ?? "" }}',
+            bookingNumber: '{{ $booking->booking_number ?? "N/A" }}',
+            bookingStatus: '{{ $booking->status ?? "N/A" }}',
+            codeDigits: ['', '', '', '', '', ''],
+            remainingAttempts: 3,
+            canRegenerate: true,
+            generatedCode: '',
+            submitting: false,
+            generating: false,
+            completed: false,
+            errorMessage: '',
 
-                isCodeComplete() {
-                    return this.codeDigits.every(d => d !== '');
-                },
+            init() {
+                // Focus first input on load
+                this.$nextTick(() => {
+                    document.getElementById('digit-0')?.focus();
+                });
+            },
 
-                getCode() {
-                    return this.codeDigits.join('');
-                },
+            isCodeComplete() {
+                return this.codeDigits.every(d => d !== '');
+            },
 
-                handleDigitInput(event, index) {
-                    const value = event.target.value.replace(/[^0-9]/g, '');
-                    this.codeDigits[index] = value.slice(-1);
-                    
-                    if (value && index < 5) {
+            getCode() {
+                return this.codeDigits.join('');
+            },
+
+            handleDigitInput(event, index) {
+                const value = event.target.value.replace(/[^0-9]/g, '');
+                this.codeDigits[index] = value.slice(-1);
+                
+                if (value && index < 5) {
+                    this.$nextTick(() => {
                         document.getElementById('digit-' + (index + 1))?.focus();
-                    }
-                },
-
-                handleBackspace(event, index) {
-                    if (!this.codeDigits[index] && index > 0) {
-                        document.getElementById('digit-' + (index - 1))?.focus();
-                    }
-                },
-
-                handlePaste(event) {
-                    event.preventDefault();
-                    const paste = (event.clipboardData || window.clipboardData).getData('text');
-                    const digits = paste.replace(/[^0-9]/g, '').slice(0, 6).split('');
-                    
-                    digits.forEach((digit, i) => {
-                        if (i < 6) this.codeDigits[i] = digit;
                     });
-                    
-                    // Fill remaining with empty
-                    for (let i = digits.length; i < 6; i++) {
-                        this.codeDigits[i] = '';
-                    }
-                    
-                    if (digits.length === 6) {
-                        this.verifyCode();
-                    }
-                },
-
-                async verifyCode() {
-                    this.submitting = true;
-                    this.errorMessage = '';
-
-                    try {
-                        const res = await fetch(`/cleaner/bookings/${this.bookingId}/verify`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                'Accept': 'application/json',
-                            },
-                            body: JSON.stringify({ code: this.getCode() })
-                        });
-
-                        const data = await res.json();
-
-                        if (data.success) {
-                            this.completed = true;
-                        } else {
-                            this.errorMessage = data.message;
-                            this.remainingAttempts = data.remaining_attempts || 0;
-                            this.canRegenerate = data.can_regenerate || false;
-                            this.codeDigits = ['', '', '', '', '', ''];
-                            document.getElementById('digit-0')?.focus();
-                        }
-                    } catch (e) {
-                        this.errorMessage = 'An error occurred. Please try again.';
-                    } finally {
-                        this.submitting = false;
-                    }
-                },
-
-                async generateNewCode() {
-                    this.generating = true;
-                    this.errorMessage = '';
-
-                    try {
-                        const res = await fetch(`/cleaner/bookings/${this.bookingId}/generate-code`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                'Accept': 'application/json',
-                            }
-                        });
-
-                        const data = await res.json();
-
-                        if (data.success) {
-                            this.generatedCode = data.code;
-                            this.remainingAttempts = 3;
-                            this.codeDigits = ['', '', '', '', '', ''];
-                            document.getElementById('digit-0')?.focus();
-                        } else {
-                            this.errorMessage = data.message;
-                        }
-                    } catch (e) {
-                        this.errorMessage = 'Failed to generate code.';
-                    } finally {
-                        this.generating = false;
-                    }
                 }
-            };
-        }
-    </script>
-</body>
-</html>
+            },
+
+            handleBackspace(event, index) {
+                if (!this.codeDigits[index] && index > 0) {
+                    this.$nextTick(() => {
+                        document.getElementById('digit-' + (index - 1))?.focus();
+                    });
+                }
+            },
+
+            handlePaste(event) {
+                event.preventDefault();
+                const paste = (event.clipboardData || window.clipboardData).getData('text');
+                const digits = paste.replace(/[^0-9]/g, '').slice(0, 6).split('');
+                
+                digits.forEach((digit, i) => {
+                    if (i < 6) this.codeDigits[i] = digit;
+                });
+                
+                for (let i = digits.length; i < 6; i++) {
+                    this.codeDigits[i] = '';
+                }
+                
+                if (digits.length === 6) {
+                    this.$nextTick(() => this.verifyCode());
+                }
+            },
+
+            async verifyCode() {
+                if (!this.isCodeComplete()) return;
+                
+                this.submitting = true;
+                this.errorMessage = '';
+
+                try {
+                    const res = await fetch(`/cleaner/bookings/${this.bookingId}/verify`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ code: this.getCode() })
+                    });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        this.completed = true;
+                    } else {
+                        this.errorMessage = data.message || 'Invalid verification code';
+                        this.remainingAttempts = data.remaining_attempts || 0;
+                        this.canRegenerate = data.can_regenerate || false;
+                        this.codeDigits = ['', '', '', '', '', ''];
+                        this.$nextTick(() => {
+                            document.getElementById('digit-0')?.focus();
+                        });
+                    }
+                } catch (e) {
+                    this.errorMessage = 'Network error. Please try again.';
+                } finally {
+                    this.submitting = false;
+                }
+            },
+
+            async generateNewCode() {
+                this.generating = true;
+                this.errorMessage = '';
+
+                try {
+                    const res = await fetch(`/cleaner/bookings/${this.bookingId}/generate-code`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        }
+                    });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        this.generatedCode = data.code;
+                        this.remainingAttempts = 3;
+                        this.codeDigits = ['', '', '', '', '', ''];
+                        this.$nextTick(() => {
+                            document.getElementById('digit-0')?.focus();
+                        });
+                    } else {
+                        this.errorMessage = data.message || 'Failed to generate code';
+                    }
+                } catch (e) {
+                    this.errorMessage = 'Network error. Please try again.';
+                } finally {
+                    this.generating = false;
+                }
+            }
+        };
+    }
+</script>
+@endpush

@@ -26,7 +26,7 @@ class GoogleMapsService
 
         return Cache::remember($cacheKey, 300, function () use ($originLat, $originLng, $destLat, $destLng) {
             try {
-                $response = Http::get("{$this->baseUrl}/distancematrix/json", [
+                $response = Http::timeout(10)->get("{$this->baseUrl}/distancematrix/json", [
                     'origins' => "{$originLat},{$originLng}",
                     'destinations' => "{$destLat},{$destLng}",
                     'mode' => 'driving',

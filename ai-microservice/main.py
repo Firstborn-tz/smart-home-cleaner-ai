@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Smart Home Cleaner Request Management System AI - XGBoost recommendation microservice
-24-feature model trained on REAL database booking data
+model trained on REAL database booking data
 Auto-retrains daily and after every 10 new completed bookings
 """
 

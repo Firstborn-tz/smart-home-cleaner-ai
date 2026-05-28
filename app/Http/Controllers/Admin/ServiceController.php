@@ -5,24 +5,30 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ServiceController extends Controller
 {
     /**
-     * List all services
+     * List all services with commission rate
      */
     public function index()
     {
-        $services = Service::with('category')->orderBy('category_id')->orderBy('sort_order')->get();
+        $services = Service::with('category')
+            ->orderBy('category_id')
+            ->orderBy('sort_order')
+            ->get();
+            
         $categories = ServiceCategory::orderBy('sort_order')->get();
+        $commissionRate = Setting::get('commission_rate', 15);
         
-        return view('admin.services.index', compact('services', 'categories'));
+        return view('admin.services.index', compact('services', 'categories', 'commissionRate'));
     }
 
     /**
-     * Store a new service
+     * Store a new service (NO price - cleaners set their own)
      */
     public function store(Request $request)
     {
@@ -30,8 +36,6 @@ class ServiceController extends Controller
             'name' => 'required|string|max:255|unique:services,name',
             'category_id' => 'required|exists:service_categories,id',
             'description' => 'nullable|string|max:1000',
-            'base_price' => 'required|numeric|min:0',
-            'instant_booking_premium' => 'nullable|numeric|min:0',
             'estimated_duration_minutes' => 'required|integer|min:30|max:600',
             'is_active' => 'boolean',
         ]);
@@ -41,8 +45,7 @@ class ServiceController extends Controller
             'slug' => Str::slug($request->name),
             'category_id' => $request->category_id,
             'description' => $request->description,
-            'base_price' => $request->base_price,
-            'instant_booking_premium' => $request->instant_booking_premium ?? 0,
+            'base_price' => null,
             'estimated_duration_minutes' => $request->estimated_duration_minutes,
             'is_active' => $request->is_active ?? true,
             'sort_order' => Service::max('sort_order') + 1,
@@ -50,12 +53,12 @@ class ServiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Service added successfully!',
+            'message' => 'Service added successfully! Cleaners will set their own prices.',
         ]);
     }
 
     /**
-     * Update a service
+     * Update a service (NO price update)
      */
     public function update(Request $request, Service $service)
     {
@@ -63,8 +66,6 @@ class ServiceController extends Controller
             'name' => 'required|string|max:255|unique:services,name,' . $service->id,
             'category_id' => 'required|exists:service_categories,id',
             'description' => 'nullable|string|max:1000',
-            'base_price' => 'required|numeric|min:0',
-            'instant_booking_premium' => 'nullable|numeric|min:0',
             'estimated_duration_minutes' => 'required|integer|min:30|max:600',
             'is_active' => 'boolean',
         ]);
@@ -74,8 +75,6 @@ class ServiceController extends Controller
             'slug' => Str::slug($request->name),
             'category_id' => $request->category_id,
             'description' => $request->description,
-            'base_price' => $request->base_price,
-            'instant_booking_premium' => $request->instant_booking_premium ?? 0,
             'estimated_duration_minutes' => $request->estimated_duration_minutes,
             'is_active' => $request->is_active ?? $service->is_active,
         ]);
@@ -91,9 +90,7 @@ class ServiceController extends Controller
      */
     public function destroy(Service $service)
     {
-        // Check if service has bookings
         if ($service->bookings()->count() > 0) {
-            // Soft delete instead
             $service->update(['is_active' => false]);
             return response()->json([
                 'success' => true,
@@ -124,20 +121,22 @@ class ServiceController extends Controller
     }
 
     /**
-     * Update sort order
+     * Update commission rate
      */
-    public function updateOrder(Request $request)
+    public function updateCommission(Request $request)
     {
         $request->validate([
-            'orders' => 'required|array',
-            'orders.*.id' => 'required|exists:services,id',
-            'orders.*.sort_order' => 'required|integer|min:0',
+            'commission_rate' => 'required|numeric|min:0|max:100',
         ]);
 
-        foreach ($request->orders as $order) {
-            Service::where('id', $order['id'])->update(['sort_order' => $order['sort_order']]);
-        }
+        Setting::updateOrCreate(
+            ['key' => 'commission_rate'],
+            ['value' => $request->commission_rate]
+        );
 
-        return response()->json(['success' => true, 'message' => 'Order updated!']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Commission rate updated to ' . $request->commission_rate . '%',
+        ]);
     }
 }

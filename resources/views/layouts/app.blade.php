@@ -1,12 +1,34 @@
 <!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" x-data="appShell()" x-init="init()" :class="{ 'dark': darkMode }">
+<html lang="en" x-data="appShell()" x-init="init()" :class="{ 'dark': darkMode }">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') - SmartClean AI</title>
+    <title>@yield('title', 'Dashboard') — SmartClean AI</title>
 
-    <!-- ANTI-FLASH: Apply dark mode immediately before page renders -->
+    {{-- Tailwind CSS --}}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { 'sans': ['Inter', 'system-ui', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+
+    {{-- Alpine.js --}}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    {{-- Font Awesome 6.5.1 --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    {{-- Google Fonts - Inter --}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    {{-- Dark Mode Flash Prevention --}}
     <script>
         (function() {
             if (localStorage.getItem('darkMode') === 'true') {
@@ -14,357 +36,523 @@
             }
         })();
     </script>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' }
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <style>
+        /* ============================================ */
+        /* GLOBAL RESET & BASE */
+        /* ============================================ */
         * { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        
-        /* Sidebar */
-        .sidebar { width: 250px; transition: width 0.3s ease; }
-        .sidebar.collapsed { width: 60px; }
-        .sidebar.collapsed .nav-label, .sidebar.collapsed .brand-text, .sidebar.collapsed .user-details { display: none; }
-        .sidebar.collapsed .sidebar-bottom-text { display: none; }
-        .sidebar.collapsed .nav-link { justify-content: center; padding: 10px; }
-        
+
+        /* ============================================ */
+        /* ANIMATIONS */
+        /* ============================================ */
+        @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 70% { box-shadow: 0 0 0 20px rgba(59,130,246,0); } 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .pulse-ring { animation: pulse-ring 2.5s infinite; }
+        .gradient-animate { background-size: 200% 200%; animation: gradientShift 5s ease infinite; }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+
+        /* ============================================ */
+        /* SIDEBAR SYSTEM */
+        /* ============================================ */
+        .sidebar-wrapper { position: fixed; left: 0; top: 0; height: 100vh; height: 100dvh; z-index: 40; }
+        .sidebar {
+            width: 260px; height: 100%; background: #ffffff; border-right: 1px solid #e5e7eb;
+            display: flex; flex-direction: column; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 30px rgba(0,0,0,0.05); overflow: hidden;
+        }
+        .dark .sidebar { background: #0f172a; border-color: #1e293b; box-shadow: 4px 0 30px rgba(0,0,0,0.4); }
+
+        /* Collapsed State */
+        .sidebar.collapsed { width: 72px; }
+        .sidebar.collapsed .nav-label,
+        .sidebar.collapsed .brand-text,
+        .sidebar.collapsed .user-info-text,
+        .sidebar.collapsed .sidebar-section-title,
+        .sidebar.collapsed .notification-badge-text { display: none; }
+        .sidebar.collapsed .nav-link { justify-content: center; padding: 12px; border-radius: 14px; }
+        .sidebar.collapsed .nav-icon { margin: 0 auto; }
+        .sidebar.collapsed .brand-logo { margin: 0 auto; justify-content: center; }
+        .sidebar.collapsed .sidebar-bottom-btn span { display: none; }
+        .sidebar.collapsed .sidebar-bottom-btn { justify-content: center; padding: 12px; }
+
         /* Main Content */
-        .main-content { margin-left: 250px; transition: margin-left 0.3s ease; }
-        .main-content.expanded { margin-left: 60px; }
-        
+        .main-content { margin-left: 260px; transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); min-height: 100vh; min-height: 100dvh; }
+        .main-content.expanded { margin-left: 72px; }
+
+        /* Hover Expand on Desktop */
+        @media (min-width: 1024px) {
+            .sidebar-wrapper:hover .sidebar.collapsed { width: 260px; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-label,
+            .sidebar-wrapper:hover .sidebar.collapsed .brand-text,
+            .sidebar-wrapper:hover .sidebar.collapsed .user-info-text,
+            .sidebar-wrapper:hover .sidebar.collapsed .sidebar-section-title,
+            .sidebar-wrapper:hover .sidebar.collapsed .sidebar-bottom-btn span,
+            .sidebar-wrapper:hover .sidebar.collapsed .notification-badge-text { display: block; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-link { justify-content: flex-start; padding: 10px 16px; }
+            .sidebar-wrapper:hover .sidebar.collapsed .nav-icon { margin: 0; }
+            .sidebar-wrapper:hover .sidebar.collapsed .sidebar-bottom-btn { justify-content: flex-start; padding: 10px 16px; }
+            .sidebar-wrapper:hover .sidebar.collapsed .brand-logo { margin: 0; justify-content: flex-start; }
+        }
+
         /* Mobile */
         @media (max-width: 1023px) {
-            .sidebar { position: fixed; left: -280px; top: 0; width: 280px; height: 100dvh; z-index: 50; transition: left 0.3s ease; }
-            .sidebar.mobile-open { left: 0; }
+            .sidebar-wrapper { position: fixed; left: -280px; transition: left 0.3s ease; width: 280px; }
+            .sidebar-wrapper.mobile-open { left: 0; }
+            .sidebar { width: 280px; }
             .main-content { margin-left: 0 !important; }
             .mobile-overlay { display: none; }
-            .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 45; }
+            .mobile-overlay.active { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 39; }
             .bottom-nav { display: flex; }
             .page-content { padding-bottom: 80px; }
         }
-        
+
         @media (min-width: 1024px) {
             .bottom-nav { display: none; }
             .page-content { padding-bottom: 1.5rem; }
-            .sidebar { position: fixed; left: 0; top: 0; height: 100vh; z-index: 40; overflow-y: auto; }
         }
-        
-        /* Bottom Nav */
+
+        /* ============================================ */
+        /* BOTTOM NAVIGATION (Mobile) */
+        /* ============================================ */
         .bottom-nav {
-            display: none; position: fixed; bottom: 0; left: 0; right: 0; 
-            background: white; border-top: 1px solid #e5e7eb; z-index: 45;
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 38;
+            background: #ffffff; border-top: 1px solid #e5e7eb;
             padding-bottom: env(safe-area-inset-bottom, 0px);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
         }
-        .dark .bottom-nav { background: #1f2937; border-color: #374151; }
-        .bottom-nav a, .bottom-nav button { 
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 6px 2px; color: #6b7280; font-size: 10px; min-height: 56px; text-decoration: none;
-            background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif;
+        .dark .bottom-nav { background: #0f172a; border-color: #1e293b; box-shadow: 0 -4px 20px rgba(0,0,0,0.4); }
+        .bottom-nav-item {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 8px 4px; color: #6b7280; text-decoration: none; font-size: 10px;
+            min-height: 56px; transition: all 0.2s; position: relative; font-weight: 500;
         }
-        .bottom-nav a.active, .bottom-nav button.active { color: #3b82f6; }
-        .bottom-nav i { font-size: 20px; margin-bottom: 2px; }
-        
-        /* Glass */
-        .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .dark .glass { background: rgba(31,41,55,0.85); }
-        
-        /* Animations */
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-        .animate-slide-up { animation: slideUp 0.3s ease-out; }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
-        
-        /* Scrollbar */
-        ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:10px; }
-        
-        /* Dark mode */
-        .dark .bg-white { background-color: #1f2937; }
-        .dark .text-gray-800 { color: #f9fafb; }
-        .dark .text-gray-700 { color: #e5e7eb; }
-        .dark .text-gray-600 { color: #d1d5db; }
-        .dark .text-gray-500 { color: #9ca3af; }
-        .dark .border-gray-100, .dark .border-gray-200 { border-color: #374151; }
-        .dark .bg-gray-50 { background-color: #111827; }
-        .dark .hover\:bg-gray-100:hover { background-color: #374151; }
+        .bottom-nav-item.active { color: #3b82f6; }
+        .dark .bottom-nav-item { color: #94a3b8; }
+        .dark .bottom-nav-item.active { color: #60a5fa; }
+        .bottom-nav-item.active::after {
+            content: ''; position: absolute; top: 0; left: 25%; right: 25%; height: 3px;
+            background: #3b82f6; border-radius: 0 0 3px 3px;
+        }
+        .bottom-nav-item i { font-size: 20px; margin-bottom: 2px; }
+
+        /* ============================================ */
+        /* GLASS MORPHISM */
+        /* ============================================ */
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+        }
+        .dark .glass { background: rgba(15, 23, 42, 0.8); }
+
+        /* ============================================ */
+        /* CARD HOVER LIFT */
+        /* ============================================ */
+        .card-hover-lift {
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .card-hover-lift:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px -8px rgba(0,0,0,0.12);
+        }
+        .dark .card-hover-lift:hover {
+            box-shadow: 0 16px 32px -8px rgba(0,0,0,0.5);
+        }
+
+        /* ============================================ */
+        /* TEXT UTILITIES */
+        /* ============================================ */
+        .text-heading { color: #0f172a; }
+        .dark .text-heading { color: #f1f5f9; }
+        .text-body { color: #475569; }
+        .dark .text-body { color: #cbd5e1; }
+        .text-muted { color: #64748b; }
+        .dark .text-muted { color: #94a3b8; }
+
+        /* ============================================ */
+        /* STAT NUMBER */
+        /* ============================================ */
+        .stat-number {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.03em;
+        }
+
+        /* ============================================ */
+        /* SCROLLBAR */
+        /* ============================================ */
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .dark .sidebar::-webkit-scrollbar-thumb { background: #334155; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* ============================================ */
+        /* SCROLLBAR HIDE */
+        /* ============================================ */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ============================================ */
+        /* DARK MODE FALLBACKS */
+        /* ============================================ */
+        .dark body { background-color: #020617; }
+        .dark .bg-white { background-color: #1e293b; }
+        .dark .bg-gray-50 { background-color: #0f172a; }
+        .dark .bg-gray-100 { background-color: #1e293b; }
+        .dark .text-gray-800 { color: #f1f5f9; }
+        .dark .text-gray-700 { color: #e2e8f0; }
+        .dark .text-gray-600 { color: #cbd5e1; }
+        .dark .text-gray-500 { color: #94a3b8; }
+        .dark .text-gray-400 { color: #64748b; }
+        .dark .border-gray-200, .dark .border-gray-100 { border-color: #334155; }
+        .dark .border-gray-300 { border-color: #475569; }
+        .dark .hover\:bg-gray-50:hover { background-color: #1e293b; }
+        .dark .hover\:bg-gray-100:hover { background-color: #334155; }
+        .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+        .dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.6); }
+        .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+        .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+
+        /* Dark mode form elements */
+        .dark input:not([type="checkbox"]):not([type="radio"]),
+        .dark select,
+        .dark textarea {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            border-color: #334155;
+        }
+        .dark input::placeholder,
+        .dark textarea::placeholder { color: #64748b; }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .theme-toggle-btn:hover {
+            transform: scale(1.05);
+        }
+        .theme-toggle-btn:active {
+            transform: scale(0.95);
+        }
+
+        @stack('styles')
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
+<body class="bg-gray-50 dark:bg-[#020617] text-gray-800 dark:text-gray-200 min-h-screen">
 
-    <!-- Mobile Overlay -->
+    {{-- Mobile Overlay --}}
     <div class="mobile-overlay" :class="{ 'active': sidebarMobileOpen }" @click="sidebarMobileOpen = false"></div>
 
-    <!-- ============================================ -->
-    <!-- SIDEBAR -->
-    <!-- ============================================ -->
-    <aside class="sidebar bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl overflow-y-auto"
-           :class="{ 'collapsed': !sidebarOpen && !isMobile, 'mobile-open': sidebarMobileOpen }">
-        
-        <!-- Brand + Close button (mobile) -->
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-broom text-white text-sm"></i>
-                </div>
-                <div class="brand-text">
-                    <h1 class="font-extrabold text-base text-gray-800 dark:text-white">SmartClean AI</h1>
-                </div>
-            </div>
-            <!-- Mobile close button -->
-            <button @click="sidebarMobileOpen = false" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg lg:hidden">
-                <i class="fas fa-times text-gray-500 dark:text-gray-400 text-lg"></i>
-            </button>
-        </div>
-
-        <!-- User Info -->
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-            <div class="flex items-center space-x-3">
-                <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->full_name ?? 'U') }}&background=3b82f6&color=fff&size=36" class="w-9 h-9 rounded-lg flex-shrink-0">
-                <div class="user-details min-w-0">
-                    <p class="font-semibold text-sm truncate text-gray-800 dark:text-white">{{ Auth::user()->full_name ?? 'User' }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="p-3 space-y-0.5">
-            @php
-                $userType = Auth::user()->user_type ?? 'homeowner';
-                if(in_array($userType, ['admin', 'super_admin'])) {
-                    $navItems = [
-                        ['route' => 'admin.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
-                        ['route' => 'admin.cleaner-requests', 'icon' => 'fa-user-clock', 'label' => 'Reg. Requests'],
-                        ['route' => 'admin.cleaners', 'icon' => 'fa-users', 'label' => 'All Cleaners'],
-                        ['route' => 'admin.commissions', 'icon' => 'fa-money-bill-wave', 'label' => 'Commissions'],
-                        ['route' => 'admin.cities', 'icon' => 'fa-city', 'label' => 'Cities'],
-                        ['route' => 'admin.ai-status', 'icon' => 'fa-brain', 'label' => 'AI Status'],
-                        ['route' => 'admin.services', 'icon' => 'fa-tools', 'label' => 'Services'],
-                    ];
-                } elseif($userType === 'cleaner') {
-                    $navItems = [
-                        ['route' => 'cleaner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
-                        ['route' => 'cleaner.bookings', 'icon' => 'fa-calendar-check', 'label' => 'My Jobs'],
-                        ['route' => 'cleaner.services', 'icon' => 'fa-tools', 'label' => 'My Services'],
-                        ['route' => 'cleaner.earnings', 'icon' => 'fa-chart-line', 'label' => 'Earnings'],
-                        ['route' => 'cleaner.business-profile', 'icon' => 'fa-store', 'label' => 'Business Profile'],
-                        ['route' => 'cleaner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
-                        ['route' => 'cleaner.registration-status', 'icon' => 'fa-clipboard-list', 'label' => 'Registration Status'],
-                    ];
-                } else {
-                    $navItems = [
-                        ['route' => 'homeowner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
-                        ['route' => 'homeowner.bookings.create', 'icon' => 'fa-plus-circle', 'label' => 'Book Service'],
-                        ['route' => 'homeowner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
-                    ];
-                }
-            @endphp
-            @foreach($navItems as $item)
-            <a href="{{ isset($item['route']) && Route::has($item['route']) ? route($item['route']) : '#' }}" 
-               class="nav-link flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm transition-all
-                      {{ request()->routeIs($item['route'] ?? '') ? 'bg-blue-500 text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                <i class="fas {{ $item['icon'] }} w-5 text-center flex-shrink-0"></i>
-                <span class="nav-label font-medium">{{ $item['label'] }}</span>
-            </a>
-            @endforeach
-        </nav>
-
-        <!-- Sidebar Bottom Controls - ALWAYS VISIBLE -->
-        <div class="border-t border-gray-100 dark:border-gray-700 p-3 space-y-1 mt-auto">
-            <!-- Collapse toggle (desktop only) -->
-            <button @click="toggleSidebar()" class="flex items-center space-x-3 w-full px-3 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm hidden lg:flex">
-                <i class="fas fa-bars w-5 text-center flex-shrink-0"></i>
-                <span class="sidebar-bottom-text">Collapse Menu</span>
-            </button>
+    {{-- ============================================ --}}
+    {{-- SIDEBAR --}}
+    {{-- ============================================ --}}
+    <div class="sidebar-wrapper" :class="{ 'mobile-open': sidebarMobileOpen }">
+        <aside class="sidebar" :class="{ 'collapsed': !sidebarOpen && !isMobile }">
             
-            <!-- Theme Toggle -->
-            <button @click="toggleTheme()" class="flex items-center space-x-3 w-full px-3 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
-                <i class="fas w-5 text-center flex-shrink-0" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
-                <span class="sidebar-bottom-text" x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
-            </button>
-            
-            <!-- Language Toggle -->
-            <button @click="toggleLanguage()" class="flex items-center space-x-3 w-full px-3 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
-                <i class="fas fa-language w-5 text-center flex-shrink-0"></i>
-                <span class="sidebar-bottom-text" x-text="currentLang === 'en' ? 'Kiswahili' : 'English'"></span>
-            </button>
-            
-            <!-- Logout -->
-            <form method="POST" action="/logout" class="w-full">
-                @csrf
-                <button type="submit" class="flex items-center space-x-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm">
-                    <i class="fas fa-sign-out-alt w-5 text-center flex-shrink-0"></i>
-                    <span class="sidebar-bottom-text">Logout</span>
+            {{-- Brand Header --}}
+            <div class="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between flex-shrink-0">
+                <a href="/" class="flex items-center gap-3 brand-logo">
+                    <div class="w-10 h-10 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/25 flex-shrink-0">
+                        <i class="fas fa-broom text-white text-sm"></i>
+                    </div>
+                    <div class="brand-text">
+                        <h1 class="font-black text-base text-heading leading-tight tracking-tight">SmartClean <span class="text-blue-600 dark:text-blue-400">AI</span></h1>
+                        <p class="text-[10px] text-muted font-medium">@yield('user_role', 'Platform')</p>
+                    </div>
+                </a>
+                {{-- Desktop Collapse Toggle --}}
+                <button @click="toggleSidebar()" 
+                        class="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex-shrink-0"
+                        title="Toggle Sidebar">
+                    <i class="fas fa-outdent text-muted text-sm"></i>
                 </button>
-            </form>
-        </div>
-    </aside>
+                {{-- Mobile Close --}}
+                <button @click="sidebarMobileOpen = false" 
+                        class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex-shrink-0">
+                    <i class="fas fa-times text-muted text-lg"></i>
+                </button>
+            </div>
 
-    <!-- ============================================ -->
-    <!-- MAIN CONTENT -->
-    <!-- ============================================ -->
+            {{-- User Info --}}
+            <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->full_name ?? 'User') }}&background=3b82f6&color=fff&size=40&bold=true" 
+                         class="w-10 h-10 rounded-xl ring-2 ring-blue-100 dark:ring-blue-500/20 flex-shrink-0">
+                    <div class="user-info-text min-w-0">
+                        <p class="font-bold text-sm text-heading truncate">{{ Auth::user()->full_name ?? 'User' }}</p>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/20">
+                            <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Online
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Navigation --}}
+            <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto scrollbar-hide">
+                @php
+                    $userType = Auth::user()->user_type ?? 'homeowner';
+                    $navGroups = [];
+                    
+                    if(in_array($userType, ['admin', 'super_admin'])) {
+                        $navGroups = [
+                            'Main' => [
+                                ['route' => 'admin.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
+                                ['route' => 'admin.cleaner-requests', 'icon' => 'fa-user-clock', 'label' => 'Reg. Requests', 'badge' => App\Models\Cleaner::where('is_verified', false)->count()],
+                            ],
+                            'Management' => [
+                                ['route' => 'admin.cleaners', 'icon' => 'fa-users', 'label' => 'All Cleaners'],
+                                ['route' => 'admin.commissions', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Commissions'],
+                                ['route' => 'admin.services', 'icon' => 'fa-broom', 'label' => 'Services'],
+                                ['route' => 'admin.cities', 'icon' => 'fa-city', 'label' => 'Cities'],
+                            ],
+                            'System' => [
+                                ['route' => 'admin.ai-status', 'icon' => 'fa-brain', 'label' => 'AI Status'],
+                            ],
+                        ];
+                    } elseif($userType === 'cleaner') {
+                        $navGroups = [
+                            'Main' => [
+                                ['route' => 'cleaner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
+                                ['route' => 'cleaner.bookings', 'icon' => 'fa-calendar-check', 'label' => 'My Jobs'],
+                                ['route' => 'cleaner.registration-status', 'icon' => 'fa-clipboard-list', 'label' => 'Reg. Status'],
+                            ],
+                            'Earnings' => [
+                                ['route' => 'cleaner.earnings', 'icon' => 'fa-chart-line', 'label' => 'Earnings'],
+                                ['route' => 'cleaner.services', 'icon' => 'fa-tools', 'label' => 'My Services'],
+                            ],
+                            'Account' => [
+                                ['route' => 'cleaner.business-profile', 'icon' => 'fa-store', 'label' => 'Business Profile'],
+                                ['route' => 'cleaner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
+                            ],
+                        ];
+                    } else {
+                        $navGroups = [
+                            'Main' => [
+                                ['route' => 'homeowner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Dashboard'],
+                                ['route' => 'homeowner.bookings.create', 'icon' => 'fa-plus-circle', 'label' => 'Book Service'],
+                            ],
+                            'Account' => [
+                                ['route' => 'homeowner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
+                            ],
+                        ];
+                    }
+                    
+                    $currentRouteName = request()->route()->getName();
+                @endphp
+
+                @foreach($navGroups as $groupName => $items)
+                <div class="sidebar-section-title px-2 pt-4 pb-1">
+                    <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{{ $groupName }}</p>
+                </div>
+                @foreach($items as $item)
+                @php $isActive = $currentRouteName === ($item['route'] ?? ''); @endphp
+                <a href="{{ isset($item['route']) && Route::has($item['route']) ? route($item['route']) : '#' }}" 
+                   class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
+                          {{ $isActive ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : 'text-body hover:bg-gray-100 dark:hover:bg-gray-800' }}">
+                    <i class="fas {{ $item['icon'] }} w-5 text-center nav-icon flex-shrink-0 {{ $isActive ? 'text-white' : '' }}"></i>
+                    <span class="nav-label flex-1">{{ $item['label'] }}</span>
+                    @if(isset($item['badge']) && $item['badge'] > 0)
+                    <span class="notification-badge-text bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{{ $item['badge'] }}</span>
+                    @endif
+                </a>
+                @endforeach
+                @endforeach
+            </nav>
+
+            {{-- Sidebar Bottom Actions --}}
+            <div class="flex-shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 space-y-1">
+                {{-- Theme Toggle --}}
+                <button @click="toggleTheme()" 
+                        class="theme-toggle-btn sidebar-bottom-btn flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 bg-gray-50 dark:bg-gray-800 text-body hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        <i class="fas text-lg transition-all duration-500" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-500'"></i>
+                    </div>
+                    <span x-text="darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+                </button>
+
+                {{-- Logout --}}
+                <form method="POST" action="{{ route('logout') }}" class="w-full">
+                    @csrf
+                    <button type="submit" 
+                            class="sidebar-bottom-btn flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-200">
+                        <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-sign-out-alt text-lg"></i>
+                        </div>
+                        <span>Logout</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+    </div>
+
+    {{-- ============================================ --}}
+    {{-- MAIN CONTENT --}}
+    {{-- ============================================ --}}
     <div class="main-content" :class="{ 'expanded': !sidebarOpen && !isMobile }">
         
-        <!-- Top Bar -->
-        <header class="glass sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between px-4 py-3">
-                <div class="flex items-center space-x-3">
-                    <!-- Hamburger - ALWAYS VISIBLE -->
-                    <button @click="sidebarMobileOpen = !sidebarMobileOpen" class="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                        <i class="fas fa-bars text-gray-600 dark:text-gray-300 text-xl"></i>
+        {{-- Top Bar --}}
+        <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-gray-800/50">
+            <div class="flex items-center justify-between px-4 py-3 sm:px-6">
+                {{-- Left: Menu Toggle + Title --}}
+                <div class="flex items-center gap-4">
+                    <button @click="sidebarMobileOpen = !sidebarMobileOpen" 
+                            class="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                        <i class="fas fa-bars text-body text-xl"></i>
                     </button>
                     <div>
-                        <h2 class="text-lg font-bold text-gray-800 dark:text-white">@yield('page_title', 'Dashboard')</h2>
+                        <h2 class="text-lg sm:text-xl font-black text-heading tracking-tight">@yield('page_title', 'Dashboard')</h2>
+                        @hasSection('page_subtitle')
+                        <p class="text-xs text-muted hidden sm:block">@yield('page_subtitle')</p>
+                        @endif
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-2">
-                    <!-- Notification Bell -->
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open; if(open) fetchNotifications()" class="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                            <i class="fas fa-bell text-gray-500 dark:text-gray-400 text-lg"></i>
-                            <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold" x-show="unreadCount > 0" x-text="unreadCount"></span>
+                {{-- Right: Actions --}}
+                <div class="flex items-center gap-2 sm:gap-3">
+                    {{-- Mobile Theme Toggle --}}
+                    <button @click="toggleTheme()" 
+                            class="theme-toggle-btn lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                            title="Toggle Theme">
+                        <i class="fas text-lg transition-all duration-500" :class="darkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-500'"></i>
+                    </button>
+
+                    {{-- Notification Bell --}}
+                    <div class="relative" x-data="{ notifOpen: false }">
+                        <button @click="notifOpen = !notifOpen; if(notifOpen) fetchNotifications()" 
+                                class="relative w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                            <i class="fas fa-bell text-body text-lg"></i>
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-lg" 
+                                  x-show="unreadCount > 0" x-text="unreadCount"></span>
                         </button>
-                        <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-72 max-w-[90vw] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
-                            <div class="p-3 border-b border-gray-100 dark:border-gray-700"><h3 class="font-bold text-sm">Notifications</h3></div>
-                            <div x-show="notifications.length === 0" class="p-6 text-center text-gray-400 text-sm">No notifications</div>
+                        {{-- Notification Dropdown --}}
+                        <div x-show="notifOpen" @click.away="notifOpen = false" x-transition
+                             class="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
+                            <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 class="font-bold text-heading text-sm">Notifications</h3>
+                            </div>
                             <template x-for="n in notifications" :key="n.id">
-                                <div class="p-3 border-b border-gray-50 dark:border-gray-700 text-sm" :class="{ 'bg-blue-50 dark:bg-blue-900/20': !n.read }">
-                                    <p class="font-medium" x-text="n.title"></p><p class="text-xs text-gray-500" x-text="n.body"></p>
+                                <div class="p-4 border-b border-gray-50 dark:border-gray-700/50 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                                    <p class="font-semibold text-heading text-xs" x-text="n.title"></p>
+                                    <p class="text-xs text-muted mt-0.5" x-text="n.body"></p>
                                 </div>
                             </template>
+                            <div x-show="notifications.length === 0" class="p-8 text-center">
+                                <i class="fas fa-bell-slash text-gray-300 dark:text-gray-600 text-2xl mb-2"></i>
+                                <p class="text-muted text-sm">No notifications</p>
+                            </div>
                         </div>
                     </div>
-                    <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->full_name ?? 'U') }}&background=3b82f6&color=fff&size=30" class="w-7 h-7 rounded-lg flex-shrink-0">
+
+                    {{-- User Avatar --}}
+                    <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->full_name ?? 'U') }}&background=3b82f6&color=fff&size=36&bold=true" 
+                         class="w-9 h-9 rounded-xl ring-2 ring-gray-100 dark:ring-gray-700 flex-shrink-0 hidden sm:block">
                 </div>
             </div>
         </header>
 
-        <!-- Page Content -->
-        <main class="page-content p-4 md:p-6">
+        {{-- Page Content --}}
+        <main class="page-content p-4 sm:p-6 lg:p-8">
             @yield('content')
         </main>
+
+        {{-- Footer --}}
+        <footer class="border-t border-gray-200 dark:border-gray-800 px-6 py-4 text-center">
+            <p class="text-xs text-muted">&copy; {{ date('Y') }} SmartClean AI. All rights reserved.</p>
+        </footer>
     </div>
 
-    <!-- ============================================ -->
-    <!-- BOTTOM NAVIGATION (Mobile Only) -->
-    <!-- ============================================ -->
-    <!-- BOTTOM NAVIGATION (Mobile Only) -->
-<div class="bottom-nav">
-    @php
-        $userType = Auth::user()->user_type ?? 'homeowner';
-        if(in_array($userType, ['admin', 'super_admin'])) {
-            $bottomItems = [
-                ['route' => 'admin.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
-                ['route' => 'admin.cleaner-requests', 'icon' => 'fa-user-clock', 'label' => 'Requests'],
-                ['route' => 'admin.cleaners', 'icon' => 'fa-users', 'label' => 'Cleaners'],
-                ['route' => 'admin.commissions', 'icon' => 'fa-money-bill-wave', 'label' => 'Money'],
-            ];
-        } elseif($userType === 'cleaner') {
-            $bottomItems = [
-                ['route' => 'cleaner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
-                ['route' => 'cleaner.bookings', 'icon' => 'fa-calendar-check', 'label' => 'Jobs'],
-                ['route' => 'cleaner.earnings', 'icon' => 'fa-chart-line', 'label' => 'Earnings'],
-                ['route' => 'cleaner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
-            ];
-        } else {
-            $bottomItems = [
-                ['route' => 'homeowner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
-                ['route' => 'homeowner.bookings.create', 'icon' => 'fa-plus-circle', 'label' => 'Book'],
-                ['route' => 'homeowner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
-            ];
-        }
-    @endphp
-    
-    @foreach($bottomItems as $item)
-    <a href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}" 
-       class="{{ request()->routeIs($item['route']) ? 'active' : '' }}">
-        <i class="fas {{ $item['icon'] }}"></i>
-        <span>{{ $item['label'] }}</span>
-    </a>
-    @endforeach
-</div>
-        
+    {{-- ============================================ --}}
+    {{-- BOTTOM NAVIGATION (Mobile) --}}
+    {{-- ============================================ --}}
+    <div class="bottom-nav">
+        @php
+            $bottomItems = [];
+            if(in_array($userType, ['admin', 'super_admin'])) {
+                $bottomItems = [
+                    ['route' => 'admin.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
+                    ['route' => 'admin.cleaner-requests', 'icon' => 'fa-user-clock', 'label' => 'Requests'],
+                    ['route' => 'admin.cleaners', 'icon' => 'fa-users', 'label' => 'Cleaners'],
+                    ['route' => 'admin.commissions', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Money'],
+                ];
+            } elseif($userType === 'cleaner') {
+                $bottomItems = [
+                    ['route' => 'cleaner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
+                    ['route' => 'cleaner.bookings', 'icon' => 'fa-calendar-check', 'label' => 'Jobs'],
+                    ['route' => 'cleaner.earnings', 'icon' => 'fa-chart-line', 'label' => 'Earnings'],
+                    ['route' => 'cleaner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
+                ];
+            } else {
+                $bottomItems = [
+                    ['route' => 'homeowner.dashboard', 'icon' => 'fa-th-large', 'label' => 'Home'],
+                    ['route' => 'homeowner.bookings.create', 'icon' => 'fa-plus-circle', 'label' => 'Book'],
+                    ['route' => 'homeowner.profile', 'icon' => 'fa-user-circle', 'label' => 'Profile'],
+                ];
+            }
+        @endphp
         @foreach($bottomItems as $item)
         <a href="{{ isset($item['route']) && Route::has($item['route']) ? route($item['route']) : '#' }}" 
-           class="{{ request()->routeIs($item['route'] ?? '') ? 'active' : '' }}">
+           class="bottom-nav-item {{ $currentRouteName === ($item['route'] ?? '') ? 'active' : '' }}">
             <i class="fas {{ $item['icon'] }}"></i>
             <span>{{ $item['label'] }}</span>
         </a>
         @endforeach
-        
-        <!-- More menu button -->
-        <button onclick="document.getElementById('sidebarMobileMore').classList.toggle('hidden')" class="relative">
-            <i class="fas fa-ellipsis-h"></i>
-            <span>More</span>
-        </button>
     </div>
 
-    <!-- Mobile More Menu Popup -->
-    <div id="sidebarMobileMore" class="hidden fixed bottom-16 right-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 z-50 min-w-[160px]">
-        <button onclick="document.getElementById('sidebarMobileMore').classList.add('hidden'); appShell().toggleTheme()" class="flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
-            <i class="fas fa-moon w-5 text-center"></i><span>Dark/Light Mode</span>
-        </button>
-        <button onclick="document.getElementById('sidebarMobileMore').classList.add('hidden'); appShell().toggleLanguage()" class="flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
-            <i class="fas fa-language w-5 text-center"></i><span>Kiswahili / English</span>
-        </button>
-        <form method="POST" action="/logout" class="w-full">
-            @csrf
-            <button type="submit" class="flex items-center space-x-3 w-full px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm">
-                <i class="fas fa-sign-out-alt w-5 text-center"></i><span>Logout</span>
-            </button>
-        </form>
-    </div>
+    {{-- ============================================ --}}
+    {{-- TOAST SYSTEM --}}
+    {{-- ============================================ --}}
+    <div id="toast-container" class="fixed bottom-24 lg:bottom-6 right-4 z-[9999] space-y-2 flex flex-col items-end"></div>
 
-    <!-- Toast -->
-    <div id="toast-container" class="fixed bottom-20 lg:bottom-4 right-4 z-[9999] space-y-2"></div>
-
+    {{-- ============================================ --}}
+    {{-- SCRIPTS --}}
+    {{-- ============================================ --}}
     <script>
-        // Make appShell accessible globally for the More menu
-        let appShellInstance;
-        
         function appShell() {
-            const instance = {
+            return {
                 darkMode: localStorage.getItem('darkMode') === 'true',
-                sidebarOpen: window.innerWidth >= 1024,
+                sidebarOpen: localStorage.getItem('sidebarCollapsed') !== 'true',
                 sidebarMobileOpen: false,
                 isMobile: window.innerWidth < 1024,
-                currentLang: localStorage.getItem('lang') || 'en',
                 unreadCount: 0,
                 notifications: [],
                 
                 init() {
-                    appShellInstance = this;
-                    if (this.darkMode) document.documentElement.classList.add('dark');
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                    }
+                    if (this.isMobile) {
+                        this.sidebarOpen = true;
+                    }
+                    
                     window.addEventListener('resize', () => {
                         this.isMobile = window.innerWidth < 1024;
-                        if (!this.isMobile) this.sidebarMobileOpen = false;
+                        if (!this.isMobile) {
+                            this.sidebarMobileOpen = false;
+                        }
                     });
+                    
                     this.fetchNotifications();
-                    setInterval(() => this.fetchNotifications(), 30000);
+                    setInterval(() => this.fetchNotifications(), 60000);
                 },
                 
                 toggleSidebar() {
-                    if (this.isMobile) {
-                        this.sidebarMobileOpen = !this.sidebarMobileOpen;
-                    } else {
-                        this.sidebarOpen = !this.sidebarOpen;
-                        localStorage.setItem('sidebarOpen', this.sidebarOpen);
-                    }
+                    this.sidebarOpen = !this.sidebarOpen;
+                    localStorage.setItem('sidebarCollapsed', !this.sidebarOpen);
                 },
                 
                 toggleTheme() {
@@ -373,37 +561,52 @@
                     document.documentElement.classList.toggle('dark', this.darkMode);
                 },
                 
-                toggleLanguage() {
-                    this.currentLang = this.currentLang === 'en' ? 'sw' : 'en';
-                    localStorage.setItem('lang', this.currentLang);
-                    window.location.reload();
-                },
-                
                 async fetchNotifications() {
                     try {
-                        const res = await fetch('/api/notifications');
+                        const res = await fetch('/api/notifications?limit=10', {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                        });
                         if (res.ok) {
                             const data = await res.json();
-                            if (data.success) {
-                                this.notifications = data.notifications || [];
-                                this.unreadCount = this.notifications.filter(n => !n.read).length;
-                            }
+                            this.notifications = data.notifications || [];
+                            this.unreadCount = this.notifications.filter(n => !n.read).length;
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        // Silently fail — notifications aren't critical
+                    }
                 }
             };
-            return instance;
         }
 
+        // Global Toast Function
         window.showToast = function(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
-            const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
-            toast.className = `${colors[type] || colors.success} px-4 py-3 rounded-xl shadow-xl text-white flex items-center space-x-2 animate-slide-up text-sm`;
-            toast.innerHTML = `<i class="fas ${icons[type] || icons.success} text-sm"></i><span class="font-medium">${message}</span>`;
+            
+            const colors = { 
+                success: 'bg-gradient-to-r from-green-500 to-emerald-600', 
+                error: 'bg-gradient-to-r from-red-500 to-rose-600', 
+                warning: 'bg-gradient-to-r from-yellow-500 to-amber-600', 
+                info: 'bg-gradient-to-r from-blue-500 to-blue-600' 
+            };
+            
+            const icons = { 
+                success: 'fa-check-circle', 
+                error: 'fa-exclamation-circle', 
+                warning: 'fa-exclamation-triangle', 
+                info: 'fa-info-circle' 
+            };
+            
+            toast.className = `${colors[type] || colors.success} px-5 py-3.5 rounded-2xl shadow-2xl text-white flex items-center gap-3 animate-slide-up text-sm font-semibold min-w-[200px]`;
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.success} text-base"></i><span>${message}</span>`;
             container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2500);
+            
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300); 
+            }, 3000);
         };
     </script>
 

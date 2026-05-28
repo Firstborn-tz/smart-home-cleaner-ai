@@ -7,8 +7,6 @@ use App\Models\Cleaner;
 use App\Models\City;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Helpers\SMSHelper;
-
 class CleanerController extends Controller
 {
     /**
@@ -72,83 +70,62 @@ class CleanerController extends Controller
      * APPROVE CLEANER - Step 5
      * Changes status to approved, sends notification + SMS
      */
-    public function approve(Request $request, Cleaner $cleaner)
-    {
-        $cleaner->update([
-            'is_verified' => true,
-            'verified_at' => now(),
-            'registration_status' => 'approved',
-            'availability_status' => 'online',
-        ]);
+   public function approve(Request $request, Cleaner $cleaner)
+{
+    $cleaner->update([
+        'is_verified' => true,
+        'verified_at' => now(),
+        'registration_status' => 'approved',
+        'availability_status' => 'online',
+    ]);
 
-        $cleaner->user->update(['status' => 'active']);
+    $cleaner->user->update(['status' => 'active']);
 
-        // CREATE IN-APP NOTIFICATION FOR CLEANER
-        \App\Models\Notification::create([
-            'user_id' => $cleaner->user_id,
-            'type' => 'registration_approved',
-            'title' => 'Registration Approved!',
-            'body' => 'Congratulations! Your cleaner registration has been approved. You can now start receiving bookings. Welcome to SmartClean AI!',
-            'icon' => 'fa-check-circle',
-            'priority' => 2,
-            'channel' => 'in-app',
-        ]);
+    \App\Models\Notification::create([
+        'uuid' => (string) \Str::uuid(),
+        'user_id' => $cleaner->user_id,
+        'type' => 'registration_approved',
+        'title' => 'Registration Approved!',
+        'body' => 'Congratulations! Your cleaner registration has been approved. You can now login and start receiving bookings.',
+        'icon' => 'fa-check-circle',
+        'priority' => 2,
+        'channel' => 'in-app',
+    ]);
 
-        // Send approval SMS
-        try {
-            SMSHelper::sendApprovalNotification($cleaner->user->phone, $cleaner->user->first_name);
-        } catch (\Exception $e) {
-            \Log::error('Approval SMS failed: ' . $e->getMessage());
-        }
+    return response()->json([
+        'success' => true,
+        'message' => 'Cleaner approved successfully! They can now login.',
+    ]);
+}
 
-        return response()->json([
-            'success' => true, 
-            'message' => 'Cleaner approved! Notification sent.',
-        ]);
-    }
+public function reject(Request $request, Cleaner $cleaner)
+{
+    $request->validate(['reason' => 'required|string|max:500']);
 
-    /**
-     * REJECT CLEANER - Step 5
-     * Changes status to rejected, sends notification + SMS with reason
-     */
-    public function reject(Request $request, Cleaner $cleaner)
-    {
-        $request->validate(['reason' => 'required|string|max:500']);
+    $cleaner->update([
+        'registration_status' => 'rejected',
+        'is_verified' => false,
+        'registration_notes' => $request->reason,
+        'availability_status' => 'offline',
+    ]);
 
-        $cleaner->update([
-            'registration_status' => 'rejected',
-            'is_verified' => false,
-            'registration_notes' => $request->reason,
-            'availability_status' => 'offline',
-        ]);
+    \App\Models\Notification::create([
+        'uuid' => (string) \Str::uuid(),
+        'user_id' => $cleaner->user_id,
+        'type' => 'registration_rejected',
+        'title' => 'Registration Not Approved',
+        'body' => "Your application was not approved. Reason: {$request->reason}. You may reapply with updated information.",
+        'icon' => 'fa-times-circle',
+        'priority' => 2,
+        'channel' => 'in-app',
+    ]);
 
-        // CREATE IN-APP NOTIFICATION FOR CLEANER
-        \App\Models\Notification::create([
-            'user_id' => $cleaner->user_id,
-            'type' => 'registration_rejected',
-            'title' => 'Registration Not Approved',
-            'body' => "Your application was not approved. Reason: {$request->reason}. You may reapply with updated information.",
-            'icon' => 'fa-times-circle',
-            'priority' => 2,
-            'channel' => 'in-app',
-        ]);
+    return response()->json([
+        'success' => true,
+        'message' => 'Cleaner rejected and moved to rejected list.',
+    ]);
+}
 
-        // Send rejection SMS
-        try {
-            SMSHelper::sendRejectionNotification(
-                $cleaner->user->phone, 
-                $cleaner->user->first_name, 
-                $request->reason
-            );
-        } catch (\Exception $e) {
-            \Log::error('Rejection SMS failed: ' . $e->getMessage());
-        }
-
-        return response()->json([
-            'success' => true, 
-            'message' => 'Cleaner rejected. Notification sent.',
-        ]);
-    }
 
     /**
      * Suspend a cleaner
@@ -222,3 +199,5 @@ class CleanerController extends Controller
         ]);
     }
 }
+
+
